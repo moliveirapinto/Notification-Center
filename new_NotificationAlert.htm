@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Notification</title>
+<style>
+  :root {
+    --primary: #5B5FC7;
+    --primary-hover: #4B4FB7;
+    --primary-text: #fff;
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #242424;
+    --text-secondary: #616161;
+    --border: #e0e0e0;
+    --success: #0f7b0f;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .header {
+    background: var(--primary);
+    color: var(--primary-text);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.2px; }
+  .header p { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  .content { flex: 1; padding: 20px 24px; overflow-y: auto; }
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .priority-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .priority-normal { background: #e8ecf4; color: #444; }
+  .priority-important { background: #fff3e0; color: #e65100; }
+  .priority-urgent { background: #fde7e9; color: #d13438; }
+  .notif-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    line-height: 1.3;
+    color: #242424;
+  }
+  .notif-message {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #424242;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .notif-image {
+    width: 100%;
+    max-height: 260px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+  }
+  .notif-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    transition: background 0.15s;
+  }
+  .notif-link:hover { background: var(--primary-hover); }
+  .notif-link svg { flex-shrink: 0; }
+  .sent-info {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sent-info svg { flex-shrink: 0; }
+  .footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: var(--card);
+  }
+  .btn {
+    padding: 10px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: #16a34a; color: #fff; }
+  .btn-primary:hover { background: #15803d; }
+  .btn-primary:disabled { background: #bbb; cursor: not-allowed; transform: none; }
+  .success-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .success-overlay.show { display: flex; }
+  .success-icon {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--success); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .success-text { font-size: 16px; font-weight: 600; color: var(--text); }
+  .success-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+  .btn-close-dialog {
+    margin-top: 20px;
+    padding: 8px 28px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .btn-close-dialog:hover { background: var(--border); }
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 60px; color: var(--text-secondary);
+  }
+  .loading-spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-bottom: 12px;
+  }
+  .error-msg { padding: 20px 24px; color: #d13438; text-align: center; font-size: 14px; }
+
+  @media (max-width: 480px) {
+    .header { padding: 14px 16px; }
+    .header h1 { font-size: 14px; }
+    .content { padding: 16px; }
+    .notif-title { font-size: 16px; }
+    .notif-message { font-size: 13px; }
+    .footer { padding: 12px 16px; }
+    .btn { padding: 10px 20px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header" id="headerBar">
+  <div class="header-icon" id="headerIcon">&#128276;</div>
+  <div>
+    <h1>Supervisor Notification</h1>
+    <p id="headerSub">New message from your supervisor</p>
+  </div>
+</div>
+
+<div class="content" id="notifContent">
+  <div class="loading" id="loadingIndicator">
+    <div class="loading-spinner"></div>
+    <span>Loading notification...</span>
+  </div>
+</div>
+
+<div class="footer">
+  <button class="btn btn-primary" id="btnAck" onclick="acknowledge()" disabled>&#10003; Acknowledge</button>
+</div>
+
+<div class="success-overlay" id="successOverlay">
+  <div class="success-icon">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17Z" fill="currentColor"/>
+    </svg>
+  </div>
+  <div class="success-text">Acknowledged</div>
+  <div class="success-sub">Thank you for reading this notification</div>
+  <button class="btn-close-dialog" onclick="closeDialog()">Close</button>
+</div>
+
+<script>
+  var NOTIF_ENTITY = "maulabs_supervisornotification";
+  var ACK_ENTITY = "maulabs_notificationack";
+  var NOTIF_DEF_PATH = "EntityDefinitions(LogicalName='" + NOTIF_ENTITY + "')";
+  var notifRecord = null;
+  var categories = [];
+
+  function getNotifId() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('data') || '';
+  }
+
+  function getXrm() {
+    return window.parent && window.parent.Xrm ? window.parent.Xrm : null;
+  }
+
+  function getBaseUrl() {
+    var Xrm = getXrm();
+    if (Xrm) return Xrm.Utility.getGlobalContext().getClientUrl();
+    return window.location.origin;
+  }
+
+  function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function loadNotification() {
+    var notifId = getNotifId();
+    if (!notifId) { showError('No notification ID provided.'); return; }
+
+    var baseUrl = getBaseUrl();
+
+    // Load categories from entity description
+    var catXhr = new XMLHttpRequest();
+    catXhr.open('GET', baseUrl + '/api/data/v9.2/' + NOTIF_DEF_PATH + '?$select=Description', false);
+    catXhr.setRequestHeader('OData-MaxVersion', '4.0');
+    catXhr.setRequestHeader('OData-Version', '4.0');
+    catXhr.send();
+    if (catXhr.status === 200) {
+      try {
+        var meta = JSON.parse(catXhr.responseText);
+        var desc = '';
+        if (meta.Description && meta.Description.LocalizedLabels && meta.Description.LocalizedLabels.length)
+          desc = meta.Description.LocalizedLabels[0].Label;
+        var config = JSON.parse(desc);
+        categories = config.categories || [];
+      } catch (e) { categories = []; }
+    }
+
+    // Load notification record
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', baseUrl + '/api/data/v9.2/maulabs_supervisornotifications(' + notifId + ')?$select=maulabs_title,maulabs_message,maulabs_imageurl,maulabs_linkurl,maulabs_linktext,maulabs_priority,maulabs_status,maulabs_category,maulabs_senton,maulabs_scheduledon,createdon,_createdby_value', false);
+    xhr.setRequestHeader('OData-MaxVersion', '4.0');
+    xhr.setRequestHeader('OData-Version', '4.0');
+    xhr.setRequestHeader('Prefer', 'odata.include-annotations="*"');
+    xhr.send();
+
+    if (xhr.status !== 200) {
+      showError('Failed to load notification. It may have been deleted.');
+      return;
+    }
+
+    notifRecord = JSON.parse(xhr.responseText);
+    renderNotification();
+  }
+
+  function renderNotification() {
+    var n = notifRecord;
+    var container = document.getElementById('notifContent');
+    var html = '';
+
+    // Meta row: category + priority
+    html += '<div class="meta-row">';
+    var cat = categories.find(function(c) { return c.id === n.maulabs_category; });
+    if (cat) {
+      html += '<span class="category-badge" style="background:' + escHtml(cat.color) + '">' + escHtml(cat.icon || '') + ' ' + escHtml(cat.name) + '</span>';
+      document.getElementById('headerIcon').textContent = cat.icon || '\u{1F514}';
+      document.getElementById('headerBar').style.background = cat.color || '#5B5FC7';
+    }
+    var priorityLabels = ['Normal', 'Important', 'Urgent'];
+    var priorityClasses = ['priority-normal', 'priority-important', 'priority-urgent'];
+    var p = n.maulabs_priority || 0;
+    html += '<span class="priority-badge ' + priorityClasses[p] + '">';
+    if (p === 2) html += '&#128680; ';
+    else if (p === 1) html += '&#9888;&#65039; ';
+    html += priorityLabels[p] + '</span>';
+    html += '</div>';
+
+    // Title
+    html += '<div class="notif-title">' + escHtml(n.maulabs_title || 'Notification') + '</div>';
+
+    // Sent info
+    var sentDate = n.maulabs_senton || n.maulabs_scheduledon || n.createdon;
+    var createdBy = n['_createdby_value@OData.Community.Display.V1.FormattedValue'] || 'Supervisor';
+    html += '<div class="sent-info"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+    if (sentDate) {
+      var d = new Date(sentDate);
+      html += escHtml(d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+    }
+    html += ' &middot; From: <strong>' + escHtml(createdBy) + '</strong></div>';
+
+    // Message body
+    if (n.maulabs_message) {
+      html += '<div class="notif-message">' + escHtml(n.maulabs_message) + '</div>';
+    }
+
+    // Image
+    if (n.maulabs_imageurl) {
+      html += '<img class="notif-image" src="' + escHtml(n.maulabs_imageurl) + '" alt="Notification image" onerror="this.style.display=\'none\'" />';
+    }
+
+    // Link
+    if (n.maulabs_linkurl) {
+      var linkText = n.maulabs_linktext || 'Open Link';
+      html += '<div><a class="notif-link" href="' + escHtml(n.maulabs_linkurl) + '" target="_blank" rel="noopener noreferrer">';
+      html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+      html += escHtml(linkText) + '</a></div>';
+    }
+
+    container.innerHTML = html;
+    document.getElementById('btnAck').disabled = false;
+  }
+
+  function showError(msg) {
+    document.getElementById('notifContent').innerHTML = '<div class="error-msg">' + escHtml(msg) + '</div>';
+  }
+
+  function acknowledge() {
+    var btn = document.getElementById('btnAck');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Acknowledging...';
+
+    var Xrm = getXrm();
+    if (!Xrm) { alert('Unable to access Dynamics 365 context.'); btn.disabled = false; btn.textContent = 'Acknowledge'; return; }
+
+    var notifId = getNotifId();
+    var userName = '';
+    try { userName = Xrm.Utility.getGlobalContext().userSettings.userName || ''; } catch (e) {}
+    var title = (notifRecord && notifRecord.maulabs_title) ? notifRecord.maulabs_title : '';
+    var ackName = (userName ? userName + ' - ' : '') + (title ? title.substring(0, 60) : notifId);
+
+    var record = {
+      maulabs_name: ackName,
+      maulabs_notificationid: notifId.toLowerCase(),
+      maulabs_acknowledgedon: new Date().toISOString()
+    };
+
+    Xrm.WebApi.createRecord(ACK_ENTITY, record).then(
+      function () {
+        document.getElementById('successOverlay').classList.add('show');
+        setTimeout(function () { closeDialog(); }, 2000);
+      },
+      function (err) {
+        alert('Failed to acknowledge: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Acknowledge';
+      }
+    );
+  }
+
+  function closeDialog() {
+    try { window.close(); } catch (e) {}
+  }
+
+  window.onload = function () {
+    loadNotification();
+  };
+</script>
+</body>
+</html>

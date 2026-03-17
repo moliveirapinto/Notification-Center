@@ -1,0 +1,9 @@
+{
+  "name": "supervisor-notifications",
+  "version": "1.0.0",
+  "description": "Dynamics 365 Contact Center - Supervisor Notifications Solution",
+  "private": true,
+  "dependencies": {
+    "@azure/msal-node": "^2.16.2"
+  }
+}

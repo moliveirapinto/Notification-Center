@@ -1,0 +1,2938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Notification Center</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root {
+    --primary: #5B5FC7;
+    --primary-hover: #4B4FB7;
+    --bg: #f5f5f5;
+    --card: #ffffff;
+    --text: #242424;
+    --text-secondary: #616161;
+    --border: #e0e0e0;
+    --success: #0f7b0f;
+    --danger: #d13438;
+    --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: #fff;
+    padding: 24px 32px 0 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .header h1 { font-size: 24px; font-weight: 700; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; color: #323130; }
+  .header p { font-size: 14px; color: #605e5c; margin-top: 4px; font-weight: 400; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; }
+  .learn-link {
+    font-size: 13px;
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
+  .learn-link:hover { color: #1d4ed8; text-decoration: underline; }
+
+  /* Tab Bar */
+  .tab-bar { display: flex; gap: 0; }
+  .tab {
+    padding: 10px 24px;
+    border: none;
+    background: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+
+  /* Toolbar */
+  .toolbar {
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .toolbar-left { display: flex; align-items: center; gap: 12px; }
+  .toolbar .info { font-size: 13px; color: var(--text-secondary); }
+  .toolbar select {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: pointer;
+  }
+  .toolbar select:hover { border-color: #b0b0b0; background: #fafafa; }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-add {
+    background: #2563eb;
+    color: #fff;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-add:hover { background: #1d4ed8; }
+  .btn-sm { font-size: 12px; padding: 5px 14px; border-radius: 5px; }
+  .btn-edit, .btn-delete-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    vertical-align: middle;
+    border-radius: 6px;
+    transition: background 0.15s, transform 0.15s, opacity 0.15s;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.55;
+  }
+  .btn-edit:hover { background: rgba(37,99,235,0.1); opacity: 1; transform: scale(1.15); }
+  .btn-delete-icon { margin-left: 2px; }
+  .btn-delete-icon:hover { background: rgba(209,52,56,0.1); opacity: 1; transform: scale(1.15); }
+  .btn-edit img, .btn-delete-icon img { width: 18px; height: 18px; vertical-align: middle; }
+  .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); transition: background 0.15s, border-color 0.15s, color 0.15s; }
+  .btn-ghost:hover { background: #f0f0f0; border-color: #c0c0c0; color: var(--text); }
+
+  /* Table */
+  .table-wrap { padding: 0 32px 32px; overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  th {
+    background: #fafafa;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+  }
+  th.sortable:hover { color: var(--text); }
+  th.sortable span { font-size: 10px; margin-left: 2px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9f9fb; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-draft { background: #e8e8e8; color: #555; }
+  .badge-scheduled { background: #e0edff; color: #2563eb; }
+  .badge-sent { background: #dff6dd; color: var(--success); }
+  .category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .priority-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .priority-normal { background: #e8ecf4; color: #444; }
+  .priority-important { background: #fff3e0; color: #e65100; }
+  .priority-urgent { background: #fde7e9; color: var(--danger); }
+  .ack-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #e0edff;
+    color: #2563eb;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 28px 32px;
+    width: 500px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    position: relative;
+  }
+  .modal h2 { font-size: 16px; margin-bottom: 20px; }
+  .modal-close-x {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: #ccc;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+  }
+  .modal-close-x:hover { background: rgba(0,0,0,0.08); color: #323130; transform: scale(1.15); }
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  }
+  .form-group input:hover, .form-group select:hover, .form-group textarea:hover {
+    border-color: #b0b0b0;
+    background: #fafafa;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(91,95,199,0.15);
+    background: #fff;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+
+  /* Color Swatches */
+  .color-swatches { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .color-swatch:hover { transform: scale(1.15); box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+  .color-swatch.active {
+    border-color: #242424;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #242424;
+  }
+  .custom-color-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+  }
+  .custom-color-trigger {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+    overflow: hidden;
+    background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+  }
+  .custom-color-trigger.has-color {
+    background: var(--custom-bg);
+  }
+  .custom-color-trigger:hover { transform: scale(1.15); box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+  .custom-color-trigger.active {
+    border-color: #242424;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #242424;
+  }
+  .custom-color-trigger::after {
+    content: '+';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .custom-color-trigger.has-color::after { content: none; }
+  .custom-color-hidden {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .custom-color-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  /* Emoji Picker */
+  .emoji-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .emoji-option {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, transform 0.12s;
+    background: #f5f5f5;
+  }
+  .emoji-option:hover { background: #e8e8f4; transform: scale(1.15); }
+  .emoji-option.active { border-color: var(--primary); background: #e8e8f4; }
+
+  /* Report / Dashboard */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes countUp { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    padding: 24px 32px;
+  }
+  .dash-card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.06);
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: fadeSlideUp 0.4s ease-out both;
+    border: 1px solid rgba(0,0,0,0.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .dash-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    border-radius: 16px 16px 0 0;
+    opacity: 0.5;
+  }
+  .dash-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 16px 40px rgba(0,0,0,0.1); }
+  .dash-card h4 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    font-weight: 700;
+  }
+  .dash-card.full-width { grid-column: 1 / -1; }
+  .dash-card.half-width { grid-column: span 2; }
+  .dash-section-title {
+    padding: 28px 32px 0;
+    animation: fadeSlideUp 0.3s ease-out both;
+  }
+  .dash-section-title h2 {
+    font-size: 22px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .dash-section-title p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    padding: 0 32px;
+  }
+  .kpi-card {
+    border-radius: 12px;
+    padding: 22px 24px;
+    text-align: left;
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: fadeSlideUp 0.4s ease-out both;
+    position: relative;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-left: 3px solid #cbd5e1;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .kpi-card:nth-child(1) { border-left-color: #10b981; animation-delay: 0.05s; }
+  .kpi-card:nth-child(2) { border-left-color: #3b82f6; animation-delay: 0.1s; }
+  .kpi-card:nth-child(3) { border-left-color: #f59e0b; animation-delay: 0.15s; }
+  .kpi-card:nth-child(4) { border-left-color: #ec4899; animation-delay: 0.2s; }
+  .kpi-card:nth-child(5) { border-left-color: #8b5cf6; animation-delay: 0.25s; }
+  .kpi-value {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1;
+    color: #1e293b;
+    animation: countUp 0.5s ease-out both;
+  }
+  .kpi-label {
+    font-size: 11px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+  .kpi-card .kpi-icon {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+  .notif-list-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    margin-bottom: 4px;
+  }
+  .notif-list-item:hover {
+    background: linear-gradient(135deg, #f8f9ff 0%, #f5f6fb 100%);
+    border-color: rgba(99,102,241,0.1);
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+  .notif-list-item .nl-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  .notif-list-item .nl-info { flex: 1; min-width: 0; }
+  .notif-list-item .nl-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .notif-list-item .nl-sub {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 3px;
+  }
+  .notif-list-item .nl-ack-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    min-width: 100px;
+  }
+  .notif-list-item .nl-ack {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+    white-space: nowrap;
+  }
+  .nl-progress {
+    width: 80px;
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .nl-progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease-out;
+  }
+  .dash-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text);
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .dash-back-btn:hover { background: #f0f0f5; border-color: #2563eb; color: #2563eb; box-shadow: 0 2px 8px rgba(37,99,235,0.12); }
+  .detail-header { padding: 24px 32px 0; display: flex; align-items: center; gap: 16px; animation: fadeSlideUp 0.3s ease-out both; }
+  .detail-header h3 { font-size: 18px; font-weight: 700; }
+  .chart-tooltip {
+    position: absolute;
+    padding: 10px 14px;
+    background: rgba(20,20,20,0.92);
+    backdrop-filter: blur(8px);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-right: 16px;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .detail-stat-row {
+    display: flex;
+    gap: 16px;
+    padding: 0 32px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    animation: fadeSlideUp 0.4s ease-out both;
+    animation-delay: 0.1s;
+  }
+  .detail-stat {
+    flex: 1;
+    min-width: 120px;
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .detail-stat .ds-value { font-size: 28px; font-weight: 800; }
+  .detail-stat .ds-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; font-weight: 600; }
+  .detail-stat.ds-green { background: linear-gradient(135deg, #f0fdf4, #f7fef9); border: 1px solid #d1e7d7; }
+  .detail-stat.ds-green .ds-value { color: #059669; }
+  .detail-stat.ds-green .ds-label { color: #047857; }
+  .detail-stat.ds-red { background: linear-gradient(135deg, #fef2f2, #fef7f7); border: 1px solid #f0d4d4; }
+  .detail-stat.ds-red .ds-value { color: #dc2626; }
+  .detail-stat.ds-red .ds-label { color: #b91c1c; }
+  .detail-stat.ds-blue { background: linear-gradient(135deg, #eff6ff, #f7faff); border: 1px solid #d1e0f0; }
+  .detail-stat.ds-blue .ds-value { color: #3b82f6; }
+  .detail-stat.ds-blue .ds-label { color: #2563eb; }
+  .detail-stat.ds-purple { background: linear-gradient(135deg, #f5f3ff, #faf8ff); border: 1px solid #ddd6f5; }
+  .detail-stat.ds-purple .ds-value { color: #7c3aed; }
+  .detail-stat.ds-purple .ds-label { color: #6d28d9; }
+  .agent-card {
+    background: var(--card);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.06);
+    padding: 24px;
+    border: 1px solid rgba(0,0,0,0.04);
+    animation: fadeSlideUp 0.4s ease-out both;
+  }
+  .agent-card h4 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .agent-card h4 .count-pill {
+    font-size: 11px;
+    background: #f3f4f6;
+    color: var(--text-secondary);
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-weight: 700;
+  }
+  .agent-card .agent-search {
+    width: 100%;
+    padding: 9px 14px 9px 36px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    margin-bottom: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%239ca3af' viewBox='0 0 24 24'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") 12px center no-repeat;
+    background-color: #fff;
+  }
+  .agent-card .agent-search:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); outline: none; }
+  .agent-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 4px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.15s;
+  }
+  .agent-row:last-child { border-bottom: none; }
+  .agent-row:hover { background: #f9fafb; }
+  .agent-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+  .agent-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .agent-time { font-size: 12px; color: var(--text-secondary); }
+  .dash-date-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .dash-date-filter label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .dash-date-filter input[type="date"] {
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--card);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .dash-date-filter input[type="date"]:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    outline: none;
+  }
+  .dash-date-filter .dash-date-clear {
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--card);
+    color: var(--text-secondary);
+    transition: all 0.15s;
+  }
+  .dash-date-filter .dash-date-clear:hover {
+    border-color: #d13438;
+    color: #d13438;
+  }
+  /* Queue multi-select picker */
+  .queue-picker {
+    position: relative;
+  }
+  .queue-picker-input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+    cursor: pointer;
+    background: #fff;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .queue-picker-input:hover { border-color: #b0b0b0; background: #fafafa; }
+  .queue-picker-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(91,95,199,0.15);
+  }
+  .queue-picker-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 200;
+    max-height: 260px;
+    display: none;
+    flex-direction: column;
+    margin-top: 4px;
+  }
+  .queue-picker-dropdown.open { display: flex; }
+  .queue-picker-search {
+    padding: 10px 14px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    border-radius: 8px 8px 0 0;
+    background: #fafafa;
+  }
+  .queue-picker-search:focus { background: #fff; }
+  .queue-picker-list {
+    overflow-y: auto;
+    flex: 1;
+    max-height: 220px;
+    padding: 4px 0;
+  }
+  .queue-picker-option {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.12s;
+    line-height: 1;
+    user-select: none;
+    flex-wrap: nowrap;
+  }
+  .queue-picker-option:hover { background: #f0f4ff; }
+  .queue-picker-option input[type="checkbox"] {
+    display: none;
+  }
+  .queue-picker-option .qp-check {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    min-height: 18px;
+    border: 2px solid #d1d5db;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    background: #fff;
+  }
+  .queue-picker-option .qp-check svg { display: none; }
+  .queue-picker-option input:checked + .qp-check {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+  .queue-picker-option input:checked + .qp-check svg { display: block; }
+  .queue-picker-option .qp-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 6px;
+    position: relative;
+    top: -1px;
+  }
+  .queue-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .queue-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+  .queue-tag .queue-tag-x {
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    color: #93c5fd;
+    transition: color 0.1s;
+  }
+  .queue-tag .queue-tag-x:hover { color: #d13438; }
+  .report-summary {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 0 32px 16px;
+    box-shadow: var(--shadow);
+  }
+  .report-header h3 { font-size: 16px; margin-bottom: 8px; }
+  .report-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .report-stats {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: #f5f5f5;
+    border-radius: 8px;
+    padding: 14px 20px;
+    text-align: center;
+    min-width: 100px;
+  }
+  .stat-number { font-size: 22px; font-weight: 700; color: var(--primary); }
+  .stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; font-weight: 600; text-transform: uppercase; }
+  .report-table { padding: 0 32px 32px; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    z-index: 200;
+    animation: slideIn 0.3s;
+  }
+  .toast-success { background: var(--success); }
+  .toast-error { background: var(--danger); }
+  @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* Misc */
+  .empty-state { text-align: center; padding: 48px; color: var(--text-secondary); font-size: 14px; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 1024px) {
+    .dashboard-grid { grid-template-columns: 1fr 1fr; }
+    .dash-card.half-width { grid-column: 1 / -1; }
+  }
+  @media (max-width: 768px) {
+    .header { padding: 16px 16px 0; }
+    .header h1 { font-size: 20px; }
+    .toolbar { padding: 12px 16px; flex-wrap: wrap; }
+    .toolbar-left { flex-wrap: wrap; width: 100%; }
+    .table-wrap { padding: 0 16px 16px; }
+    .dashboard-grid { grid-template-columns: 1fr; padding: 16px; gap: 14px; }
+    .dash-card.half-width { grid-column: auto; }
+    .kpi-row { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); padding: 0 16px; gap: 10px; }
+    .dash-section-title { padding: 20px 16px 0; }
+    .dash-section-title h2 { font-size: 18px; }
+    .detail-header { padding: 16px 16px 0; flex-wrap: wrap; }
+    .detail-stat-row { padding: 0 16px; gap: 10px; }
+    .detail-stat { min-width: 100px; padding: 14px; }
+    .modal { padding: 20px 18px; width: 95vw; }
+    th, td { padding: 10px 10px; font-size: 12px; }
+    table { min-width: 500px; }
+    .agent-card { min-width: auto !important; }
+  }
+  @media (max-width: 480px) {
+    .header { padding: 12px 12px 0; }
+    .header h1 { font-size: 18px; }
+    .header p { font-size: 12px; }
+    .tab { padding: 8px 14px; font-size: 12px; }
+    .toolbar { padding: 10px 12px; }
+    .table-wrap { padding: 0 12px 12px; }
+    .kpi-row { grid-template-columns: 1fr 1fr; padding: 0 12px; }
+    .kpi-value { font-size: 24px; }
+    .kpi-card { padding: 16px; }
+    .dashboard-grid { padding: 12px; }
+    .dash-card { padding: 18px; }
+    .modal { padding: 16px 14px; }
+    .btn-add { padding: 8px 16px; font-size: 13px; }
+    .detail-stat-row { flex-direction: column; padding: 0 12px; }
+    .detail-stat { min-width: auto; }
+    .dash-section-title { padding: 16px 12px 0; }
+    .toast { left: 12px; right: 12px; bottom: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+
+<!-- LEARN MORE MODAL -->
+<div class="modal-overlay" id="learnModal">
+  <div class="modal" style="width:560px;max-width:95vw">
+    <button class="modal-close-x" onclick="document.getElementById('learnModal').classList.remove('active')">&times;</button>
+    <h2 style="font-size:20px;font-weight:700;margin-bottom:6px;font-family:'Segoe UI',sans-serif;color:#323130">Notification Center</h2>
+    <p style="color:#605e5c;font-size:13px;margin-bottom:20px">A supervisor tool for real-time agent communication in Dynamics 365</p>
+    <div style="border-top:1px solid #e5e7eb;padding-top:18px">
+      <h3 style="font-size:14px;font-weight:600;color:#323130;margin-bottom:12px">What is this app?</h3>
+      <p style="font-size:13px;color:#605e5c;line-height:1.6;margin-bottom:18px">The Notification Center allows supervisors to create, schedule, and send real-time notifications directly to agents working in Dynamics 365. Agents receive pop-up alerts with optional acknowledgment tracking, so you always know who has seen your messages.</p>
+      <h3 style="font-size:14px;font-weight:600;color:#323130;margin-bottom:12px">How to use it</h3>
+      <div style="font-size:13px;color:#605e5c;line-height:1.8">
+        <p style="margin-bottom:10px"><strong style="color:#323130">1. Create categories</strong> &mdash; Go to the <em>Categories</em> tab to organize your notifications by type (e.g., Urgent, Policy Update). Assign an emoji and color to each.</p>
+        <p style="margin-bottom:10px"><strong style="color:#323130">2. Compose a notification</strong> &mdash; In the <em>Notifications</em> tab, click <strong>+ New</strong>. Write a title and body, pick a category, choose priority, and optionally target specific queues.</p>
+        <p style="margin-bottom:10px"><strong style="color:#323130">3. Send or schedule</strong> &mdash; Send immediately or set a future date/time for automatic delivery.</p>
+        <p style="margin-bottom:10px"><strong style="color:#323130">4. Track acknowledgments</strong> &mdash; Enable <em>Require Acknowledgment</em> to see which agents have confirmed reading the notification.</p>
+        <p><strong style="color:#323130">5. Review reports</strong> &mdash; Use the <em>Reports</em> tab for analytics on delivery, acknowledgment rates, and trends over time.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>Notification Center</h1>
+      <p>Send and manage notifications for your agents &nbsp;<a href="#" class="learn-link" onclick="event.preventDefault();document.getElementById('learnModal').classList.add('active')">Learn more</a></p>
+    </div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" data-tab="notifications" onclick="switchTab('notifications')">Notifications</button>
+    <button class="tab" data-tab="categories" onclick="switchTab('categories')">Categories</button>
+    <button class="tab" data-tab="reports" onclick="switchTab('reports')">Reports</button>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS TAB -->
+<div class="tab-content" id="tab-notifications">
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <select id="statusFilter" onchange="loadNotifications()">
+        <option value="">All Statuses</option>
+        <option value="0">Draft</option>
+        <option value="1">Scheduled</option>
+        <option value="2">Sent</option>
+      </select>
+      <input type="text" id="searchBar" placeholder="Search by title or message..." oninput="filterNotifications()" style="padding:7px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;width:260px" />
+      <span class="info" id="notifCount"></span>
+    </div>
+    <button class="btn-add" onclick="openNotifModal()">+ New Notification</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="sortable" onclick="sortNotifs('title')">Title <span id="sortIcon_title"></span></th>
+          <th class="sortable" onclick="sortNotifs('category')">Category <span id="sortIcon_category"></span></th>
+          <th class="sortable" onclick="sortNotifs('priority')">Priority <span id="sortIcon_priority"></span></th>
+          <th class="sortable" onclick="sortNotifs('status')">Status <span id="sortIcon_status"></span></th>
+          <th class="sortable" onclick="sortNotifs('date')">Date <span id="sortIcon_date"></span></th>
+          <th class="sortable" onclick="sortNotifs('acks')">Acks <span id="sortIcon_acks"></span></th>
+          <th style="width:150px">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="notifList">
+        <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CATEGORIES TAB -->
+<div class="tab-content" id="tab-categories" style="display:none">
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <span class="info" id="catCount"></span>
+    </div>
+    <button class="btn-add" onclick="openCatModal()">+ New Category</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:50px">Icon</th>
+          <th>Name</th>
+          <th>Color</th>
+          <th>Description</th>
+          <th style="width:80px">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="catList">
+        <tr><td colspan="5" class="empty-state">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- REPORTS TAB -->
+<div class="tab-content" id="tab-reports" style="display:none">
+  <div id="reportsDashboard"></div>
+  <div id="reportsDetail" style="display:none"></div>
+</div>
+
+<!-- NOTIFICATION MODAL -->
+<div class="modal-overlay" id="notifModal">
+  <div class="modal" style="width:540px">
+    <button class="modal-close-x" onclick="closeNotifModal()" title="Close">&times;</button>
+    <h2 id="notifModalTitle">New Notification</h2>
+    <div class="form-group">
+      <label>Title *</label>
+      <input type="text" id="nfTitle" maxlength="500" placeholder="Notification title" />
+    </div>
+    <div style="display:flex;gap:12px">
+      <div class="form-group" style="flex:1">
+        <label>Category</label>
+        <select id="nfCategory"><option value="">No category</option></select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Priority</label>
+        <select id="nfPriority">
+          <option value="0">Normal</option>
+          <option value="1">Important</option>
+          <option value="2">Urgent</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Target Queue <span style="font-size:11px;color:var(--text-secondary);font-weight:400">(leave empty to send to everyone)</span></label>
+      <div class="queue-picker" id="queuePicker">
+        <input type="text" class="queue-picker-input" id="nfQueueInput" placeholder="Click to select queues..." readonly onclick="toggleQueueDropdown()" />
+        <div class="queue-picker-dropdown" id="queueDropdown">
+          <input type="text" class="queue-picker-search" id="queueSearch" placeholder="Search queues..." oninput="filterQueueOptions()" />
+          <div class="queue-picker-list" id="queueOptionsList"></div>
+        </div>
+        <div class="queue-tags" id="queueTags"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Message *</label>
+      <textarea id="nfMessage" rows="5" maxlength="10000" placeholder="Write the notification message..."></textarea>
+    </div>
+    <div class="form-group">
+      <label>Image URL (optional)</label>
+      <input type="text" id="nfImageUrl" maxlength="2000" placeholder="https://example.com/image.png" />
+    </div>
+    <div style="display:flex;gap:12px">
+      <div class="form-group" style="flex:2">
+        <label>Link URL (optional)</label>
+        <input type="text" id="nfLinkUrl" maxlength="2000" placeholder="https://example.com" />
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Link Text</label>
+        <input type="text" id="nfLinkText" maxlength="500" placeholder="Click here" />
+      </div>
+    </div>
+    <div class="form-group" id="scheduleGroup" style="display:none">
+      <label>Schedule Date &amp; Time *</label>
+      <div style="display:flex;gap:12px">
+        <input type="datetime-local" id="nfScheduledOn" style="flex:1" />
+        <select id="nfTimezone" style="flex:1;font-size:12px"></select>
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:4px" id="tzHint"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" style="background:#9ca3af;color:#fff" onclick="saveNotif(0)" id="btnSaveDraft" onmouseover="this.style.background='#6b7280'" onmouseout="this.style.background='#9ca3af'">Save Draft</button>
+      <button class="btn" style="background:#2563eb;color:#fff" onclick="handleSchedule()" id="btnSchedule" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">Schedule</button>
+      <button class="btn" style="background:#6366f1;color:#fff" onclick="showPreview()" id="btnPreview" onmouseover="this.style.background='#4f46e5'" onmouseout="this.style.background='#6366f1'">Preview</button>
+      <button class="btn" style="background:#16a34a;color:#fff" onclick="saveNotif(2)" id="btnSendNow" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">Send Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICATION PREVIEW MODAL -->
+<div class="modal-overlay" id="previewModal">
+  <div class="modal" style="width:520px;padding:0;overflow:hidden">
+    <div style="background:#f0f0f5;padding:16px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <h2 style="margin:0;font-size:15px">&#128065; Notification Preview</h2>
+      <span style="font-size:11px;color:var(--text-secondary);background:#e0e0e0;padding:3px 10px;border-radius:12px">How agents will see it</span>
+    </div>
+    <div id="previewBody" style="padding:24px"></div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn btn-ghost" onclick="closePreview()">Close Preview</button>
+      <button class="btn btn-primary" onclick="closePreview();saveNotif(2)">Looks Good - Send Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY MODAL -->
+<div class="modal-overlay" id="catModal">
+  <div class="modal" style="width:420px">
+    <h2 id="catModalTitle">New Category</h2>
+    <div class="form-group">
+      <label>Name *</label>
+      <input type="text" id="catName" maxlength="100" placeholder="Category name" />
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <textarea id="catDescription" maxlength="500" placeholder="Brief description" rows="3" style="resize:none;overflow:hidden;min-height:72px"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Icon (emoji) *</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <input type="text" id="catIcon" maxlength="10" placeholder="&#128226;" style="width:60px;font-size:20px;text-align:center;padding:6px;border:1px solid var(--border);border-radius:6px" />
+        <span style="font-size:11px;color:var(--text-secondary)">Type or pick below</span>
+      </div>
+      <div class="emoji-picker" id="emojiPicker"></div>
+    </div>
+    <div class="form-group">
+      <label>Color</label>
+      <div class="color-swatches" id="catColorSwatches"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCatModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFICATION DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" style="width:520px">
+    <h2 id="detailModalTitle">Notification Details</h2>
+    <div id="detailContent"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDetailModal()">Close</button>
+      <button class="btn" style="background:var(--primary);color:#fff" onclick="goToNotifStats()" id="btnViewStats">View Stats</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// CONFIGURATION - entity names (portable, no hardcoded GUIDs)
+var NOTIF_ENTITY  = "maulabs_supervisornotification";
+var NOTIF_SET     = "maulabs_supervisornotifications";
+var ACK_ENTITY    = "maulabs_notificationack";
+var ACK_SET       = "maulabs_notificationacks";
+var CAT_SET = "maulabs_notificationcategories";
+
+var BASE_URL = "";
+var categories = [];
+var notifications = [];
+var ackCounts = {};
+var queues = [];
+var selectedQueueIds = [];
+var dashTotalUsers = 0;
+var dashDateFrom = '';
+var dashDateTo = '';
+var editingNotifId = null;
+var viewingDetailId = null;
+var editingCatId = null;
+var selectedCatColor = "#5B5FC7";
+var isCustomColor = false;
+var scheduleMode = false;
+var sortColumn = "";
+var sortDirection = "asc";
+
+var TIMEZONES = [
+    { value: "UTC", label: "UTC" },
+    { value: "America/New_York", label: "Eastern Time (US)" },
+    { value: "America/Chicago", label: "Central Time (US)" },
+    { value: "America/Denver", label: "Mountain Time (US)" },
+    { value: "America/Los_Angeles", label: "Pacific Time (US)" },
+    { value: "America/Sao_Paulo", label: "Brasilia (Brazil)" },
+    { value: "America/Argentina/Buenos_Aires", label: "Buenos Aires" },
+    { value: "America/Bogota", label: "Bogota (Colombia)" },
+    { value: "America/Mexico_City", label: "Mexico City" },
+    { value: "Europe/London", label: "London (UK)" },
+    { value: "Europe/Paris", label: "Paris / Berlin (CET)" },
+    { value: "Europe/Lisbon", label: "Lisbon (Portugal)" },
+    { value: "Europe/Madrid", label: "Madrid (Spain)" },
+    { value: "Asia/Tokyo", label: "Tokyo (Japan)" },
+    { value: "Asia/Shanghai", label: "Shanghai (China)" },
+    { value: "Asia/Kolkata", label: "India (IST)" },
+    { value: "Asia/Dubai", label: "Dubai (UAE)" },
+    { value: "Australia/Sydney", label: "Sydney (Australia)" },
+    { value: "Pacific/Auckland", label: "Auckland (NZ)" }
+];
+
+var STATUS_LABELS  = ["Draft", "Scheduled", "Sent"];
+var STATUS_CLASSES = ["badge-draft", "badge-scheduled", "badge-sent"];
+var PRIORITY_LABELS  = ["Normal", "Important", "Urgent"];
+var PRIORITY_CLASSES = ["priority-normal", "priority-important", "priority-urgent"];
+
+var CATEGORY_COLORS = [
+    "#5B5FC7", "#2563eb", "#d13438", "#107C10", "#E3008C",
+    "#57811E", "#D83B01", "#0E8A7E", "#00B7C3", "#8E562E"
+];
+
+var EMOJI_OPTIONS = [
+    "\uD83D\uDD14", "\uD83D\uDCE2", "\uD83D\uDCE3", "\uD83D\uDCCC", "\uD83D\uDCCB",
+    "\u26A0\uFE0F",  "\uD83D\uDEA8", "\u2757",       "\u2139\uFE0F",  "\u2705",
+    "\uD83D\uDCAC", "\uD83D\uDCDD", "\uD83D\uDCDA", "\uD83D\uDCC5", "\uD83C\uDF1F",
+    "\uD83D\uDE80", "\uD83D\uDCA1", "\uD83D\uDD12", "\uD83C\uDFAF", "\uD83D\uDEE0\uFE0F",
+    "\uD83D\uDC4B", "\uD83C\uDF89", "\uD83D\uDCF1", "\uD83D\uDCCA", "\u23F0"
+];
+
+// INIT
+function init() {
+    if (window.parent && window.parent.Xrm) {
+        BASE_URL = window.parent.Xrm.Utility.getGlobalContext().getClientUrl();
+    } else if (window.Xrm) {
+        BASE_URL = Xrm.Utility.getGlobalContext().getClientUrl();
+    } else {
+        BASE_URL = window.location.origin;
+    }
+
+    var ta = document.getElementById("nfMessage");
+    if (ta) ta.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = this.scrollHeight + "px";
+    });
+
+    // Populate timezone selector
+    var tzSelect = document.getElementById("nfTimezone");
+    var userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    TIMEZONES.forEach(function (tz) {
+        var opt = document.createElement("option");
+        opt.value = tz.value;
+        opt.textContent = tz.label;
+        if (tz.value === userTz) opt.selected = true;
+        tzSelect.appendChild(opt);
+    });
+    tzSelect.addEventListener("change", updateTzHint);
+    updateTzHint();
+
+    // Sync emoji picker when typing in the icon input
+    var iconInput = document.getElementById("catIcon");
+    if (iconInput) iconInput.addEventListener("input", function () {
+        var val = this.value;
+        document.querySelectorAll(".emoji-option").forEach(function (e) {
+            e.classList.toggle("active", e.textContent === val);
+        });
+    });
+
+    // Close queue dropdown on outside click
+    document.addEventListener('click', function (e) {
+        var picker = document.getElementById('queuePicker');
+        if (picker && !picker.contains(e.target)) {
+            document.getElementById('queueDropdown').classList.remove('open');
+        }
+    });
+
+    loadQueues();
+    loadCategories();
+    loadNotifications();
+}
+
+// TAB SWITCHING
+function switchTab(tab) {
+    document.querySelectorAll(".tab-content").forEach(function (el) { el.style.display = "none"; });
+    document.querySelectorAll(".tab").forEach(function (el) { el.classList.remove("active"); });
+    document.getElementById("tab-" + tab).style.display = "block";
+    document.querySelector('.tab[data-tab="' + tab + '"]').classList.add("active");
+    if (tab === "reports") populateReportSelector();
+}
+
+// CATEGORIES (stored in maulabs_notificationcategory entity)
+function loadCategories() {
+    var xhr = apiCall("GET", "/api/data/v9.2/" + CAT_SET + "?$select=maulabs_notificationcategoryid,maulabs_name,maulabs_emoji,maulabs_color,maulabs_description&$orderby=maulabs_name asc");
+    if (xhr.status === 200) {
+        try { categories = JSON.parse(xhr.responseText).value || []; } catch (e) { categories = []; }
+    } else { categories = []; }
+    renderCategories();
+    populateCategorySelects();
+}
+
+function renderCategories() {
+    var tbody = document.getElementById("catList");
+    document.getElementById("catCount").textContent = categories.length + " categor" + (categories.length === 1 ? "y" : "ies");
+
+    if (!categories.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No categories yet. Click "+ New Category" to create one.</td></tr>';
+        return;
+    }
+    var html = "";
+    categories.forEach(function (cat) {
+        html += "<tr>";
+        html += '<td style="font-size:22px;text-align:center">' + esc(cat.maulabs_emoji || "") + "</td>";
+        html += "<td><strong>" + esc(cat.maulabs_name) + "</strong></td>";
+        html += '<td><span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:' + esc(cat.maulabs_color) + ';vertical-align:middle;margin-right:6px"></span>' + esc(cat.maulabs_color) + "</td>";
+        html += "<td>" + esc(cat.maulabs_description || "") + "</td>";
+        html += '<td><div style="display:flex;align-items:center;gap:2px">';
+        html += '<button class="btn-edit" title="Edit" onclick="openCatModal(\'' + esc(cat.maulabs_notificationcategoryid) + '\')"><img src="/WebResources/maulabs_ic_fluent_edit_48_regular" alt="Edit"></button>';
+        html += '<button class="btn-delete-icon" title="Delete" onclick="deleteCategory(\'' + esc(cat.maulabs_notificationcategoryid) + '\')"><img src="/WebResources/maulabs_ic_fluent_delete_48_regular2" alt="Delete"></button>';
+        html += "</div></td></tr>";
+    });
+    tbody.innerHTML = html;
+}
+
+function populateCategorySelects() {
+    var html = '<option value="">No category</option>';
+    categories.forEach(function (cat) {
+        html += '<option value="' + esc(cat.maulabs_notificationcategoryid) + '">' + esc(cat.maulabs_emoji + " " + cat.maulabs_name) + "</option>";
+    });
+    document.getElementById("nfCategory").innerHTML = html;
+}
+
+function openCatModal(id) {
+    editingCatId = id || null;
+    var cat = id ? categories.find(function (c) { return c.maulabs_notificationcategoryid === id; }) : null;
+
+    document.getElementById("catModalTitle").textContent = cat ? "Edit Category" : "New Category";
+    document.getElementById("catName").value = cat ? cat.maulabs_name : "";
+    document.getElementById("catIcon").value = cat ? cat.maulabs_emoji : "";
+    document.getElementById("catDescription").value = cat ? (cat.maulabs_description || "") : "";
+    var ta = document.getElementById("catDescription");
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
+    selectedCatColor = cat ? cat.maulabs_color : "#5B5FC7";
+    isCustomColor = cat ? CATEGORY_COLORS.indexOf(cat.maulabs_color) === -1 : false;
+
+    renderCatColorSwatches();
+    renderEmojiPicker(cat ? cat.maulabs_emoji : "");
+    document.getElementById("catModal").classList.add("active");
+}
+
+function closeCatModal() {
+    document.getElementById("catModal").classList.remove("active");
+    editingCatId = null;
+}
+
+function renderCatColorSwatches() {
+    var html = "";
+    CATEGORY_COLORS.forEach(function (c) {
+        var active = (!isCustomColor && c.toLowerCase() === selectedCatColor.toLowerCase()) ? " active" : "";
+        html += '<span class="color-swatch' + active + '" style="background:' + c + '" onclick="selectCatColor(\'' + c + "')\" title=\"" + c + '"></span>';
+    });
+    // Custom color: hidden native input + styled circular trigger
+    var customActive = isCustomColor ? " active has-color" : "";
+    var triggerStyle = isCustomColor ? ' style="--custom-bg:' + esc(selectedCatColor) + '"' : '';
+    html += '<span class="custom-color-wrap">';
+    html += '<span class="custom-color-trigger' + customActive + '"' + triggerStyle + ' onclick="openCustomColorPicker()" title="Pick a custom color"></span>';
+    html += '<input type="color" class="custom-color-hidden" id="catCustomColor" value="' + esc(isCustomColor ? selectedCatColor : '#5B5FC7') + '" onchange="applyCustomColor(this.value)" />';
+    html += '<span class="custom-color-label">Custom</span>';
+    html += '</span>';
+    document.getElementById("catColorSwatches").innerHTML = html;
+}
+
+function openCustomColorPicker() {
+    document.getElementById("catCustomColor").click();
+}
+
+function applyCustomColor(color) {
+    selectedCatColor = color;
+    isCustomColor = true;
+    renderCatColorSwatches();
+}
+
+function selectCatColor(color) {
+    selectedCatColor = color;
+    isCustomColor = false;
+    renderCatColorSwatches();
+}
+
+function renderEmojiPicker(selectedEmoji) {
+    var container = document.getElementById("emojiPicker");
+    var html = "";
+    EMOJI_OPTIONS.forEach(function (emoji) {
+        var active = (emoji === selectedEmoji) ? " active" : "";
+        html += '<span class="emoji-option' + active + '" onclick="pickEmoji(this, \'' + emoji.replace(/'/g, "\\'") + '\')">' + emoji + '</span>';
+    });
+    container.innerHTML = html;
+}
+
+function pickEmoji(el, emoji) {
+    document.getElementById("catIcon").value = emoji;
+    document.querySelectorAll(".emoji-option").forEach(function (e) { e.classList.remove("active"); });
+    el.classList.add("active");
+}
+
+function saveCategory() {
+    var name = document.getElementById("catName").value.trim();
+    var icon = document.getElementById("catIcon").value.trim();
+    var desc = document.getElementById("catDescription").value.trim();
+
+    if (!name) { toast("Category name is required.", true); return; }
+    if (!icon) { toast("Category icon (emoji) is required.", true); return; }
+
+    var body = {
+        maulabs_name: name,
+        maulabs_emoji: icon,
+        maulabs_color: selectedCatColor,
+        maulabs_description: desc || null
+    };
+
+    var method, url;
+    if (editingCatId) {
+        method = "PATCH";
+        url = "/api/data/v9.2/" + CAT_SET + "(" + editingCatId + ")";
+    } else {
+        method = "POST";
+        url = "/api/data/v9.2/" + CAT_SET;
+    }
+
+    apiCallAsync(method, url, body).then(function (xhr) {
+        if (xhr.status === 204 || xhr.status === 200 || xhr.status === 201) {
+            closeCatModal();
+            loadCategories();
+            toast(editingCatId ? "Category updated!" : "Category created!");
+        } else {
+            var msg = "Error (HTTP " + xhr.status + ")";
+            try { msg = JSON.parse(xhr.responseText).error.message; } catch (e) {}
+            toast(msg, true);
+        }
+    }).catch(function () {
+        toast("Failed to save category.", true);
+    });
+}
+
+function deleteCategory(id) {
+    if (!confirm("Delete this category? Notifications using it will keep their reference.")) return;
+    apiCallAsync("DELETE", "/api/data/v9.2/" + CAT_SET + "(" + id + ")").then(function (xhr) {
+        if (xhr.status === 204) {
+            loadCategories();
+            toast("Category deleted!");
+        } else {
+            toast("Failed to delete category.", true);
+        }
+    }).catch(function () {
+        toast("Failed to delete category.", true);
+    });
+}
+
+// NOTIFICATIONS
+function loadNotifications() {
+    var statusVal = document.getElementById("statusFilter").value;
+    var filter = statusVal !== "" ? "&$filter=maulabs_status eq " + statusVal : "";
+
+    var xhr = apiCall("GET",
+        "/api/data/v9.2/" + NOTIF_SET +
+        "?$select=maulabs_supervisornotificationid,maulabs_title,maulabs_message,maulabs_imageurl,maulabs_linkurl,maulabs_linktext,_maulabs_categoryid_value,maulabs_priority,maulabs_status,maulabs_scheduledon,maulabs_senton,maulabs_targetqueue,createdon,_createdby_value" +
+        "&$orderby=createdon desc" + filter);
+
+    notifications = (xhr.status === 200) ? JSON.parse(xhr.responseText).value : [];
+    loadAckCounts();
+    renderNotifications();
+}
+
+function loadAckCounts() {
+    ackCounts = {};
+    var xhr = apiCall("GET", "/api/data/v9.2/" + ACK_SET + "?$select=maulabs_notificationid");
+    if (xhr.status === 200) {
+        var acks = JSON.parse(xhr.responseText).value;
+        acks.forEach(function (a) {
+            if (a.maulabs_notificationid) {
+                var key = a.maulabs_notificationid.toLowerCase();
+                ackCounts[key] = (ackCounts[key] || 0) + 1;
+            }
+        });
+    }
+}
+
+function loadQueues() {
+    var xhr = apiCall("GET",
+        "/api/data/v9.2/queues?$select=queueid,name" +
+        "&$filter=statecode eq 0" +
+        "&$orderby=name asc&$top=500");
+    queues = [];
+    if (xhr.status === 200) {
+        var raw = JSON.parse(xhr.responseText).value;
+        queues = raw.filter(function (q) {
+            return q.name && q.name.indexOf('<') === -1 && q.name.indexOf('>') === -1;
+        });
+    }
+}
+
+function toggleQueueDropdown() {
+    var dd = document.getElementById('queueDropdown');
+    var isOpen = dd.classList.contains('open');
+    if (isOpen) {
+        dd.classList.remove('open');
+    } else {
+        dd.classList.add('open');
+        document.getElementById('queueSearch').value = '';
+        renderQueueOptions('');
+        setTimeout(function () { document.getElementById('queueSearch').focus(); }, 50);
+    }
+}
+
+function renderQueueOptions(filter) {
+    var list = document.getElementById('queueOptionsList');
+    var term = (filter || '').toLowerCase();
+    var html = '';
+    queues.forEach(function (q) {
+        if (term && q.name.toLowerCase().indexOf(term) === -1) return;
+        var checked = selectedQueueIds.indexOf(q.queueid) !== -1;
+        html += '<label class="queue-picker-option">';
+        html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleQueueSelection(\'' + q.queueid + '\')" />';
+        html += '<span class="qp-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>';
+        html += '<span class="qp-label">' + esc(q.name) + '</span>';
+        html += '</label>';
+    });
+    if (!html) html = '<div style="padding:12px;text-align:center;color:var(--text-secondary);font-size:12px">No queues found</div>';
+    list.innerHTML = html;
+}
+
+function filterQueueOptions() {
+    var term = document.getElementById('queueSearch').value;
+    renderQueueOptions(term);
+}
+
+function toggleQueueSelection(queueId) {
+    var idx = selectedQueueIds.indexOf(queueId);
+    if (idx !== -1) {
+        selectedQueueIds.splice(idx, 1);
+    } else {
+        selectedQueueIds.push(queueId);
+    }
+    updateQueueDisplay();
+}
+
+function removeQueueSelection(queueId) {
+    var idx = selectedQueueIds.indexOf(queueId);
+    if (idx !== -1) selectedQueueIds.splice(idx, 1);
+    updateQueueDisplay();
+    // Update checkboxes if dropdown is open
+    var dd = document.getElementById('queueDropdown');
+    if (dd.classList.contains('open')) {
+        filterQueueOptions();
+    }
+}
+
+function updateQueueDisplay() {
+    var input = document.getElementById('nfQueueInput');
+    var tagsEl = document.getElementById('queueTags');
+    if (selectedQueueIds.length === 0) {
+        input.value = '';
+        input.placeholder = 'Click to select queues...';
+        tagsEl.innerHTML = '';
+    } else {
+        input.value = selectedQueueIds.length + ' queue' + (selectedQueueIds.length > 1 ? 's' : '') + ' selected';
+        var html = '';
+        selectedQueueIds.forEach(function (id) {
+            var q = queues.find(function (q) { return q.queueid === id; });
+            if (q) {
+                html += '<span class="queue-tag">' + esc(q.name) + ' <span class="queue-tag-x" onclick="removeQueueSelection(\'' + id + '\')">&times;</span></span>';
+            }
+        });
+        tagsEl.innerHTML = html;
+    }
+}
+
+function getQueueMembers(queueId) {
+    // Support comma-separated queue IDs
+    var ids = queueId.split(',');
+    var seenIds = {};
+    var allMembers = [];
+    ids.forEach(function (id) {
+        id = id.trim();
+        if (!id) return;
+        var xhr = apiCall("GET",
+            "/api/data/v9.2/queues(" + id + ")?$select=queueid" +
+            "&$expand=queue_membership($select=systemuserid,fullname)");
+        if (xhr.status === 200) {
+            var data = JSON.parse(xhr.responseText);
+            if (data.queue_membership) {
+                data.queue_membership.forEach(function (u) {
+                    if (u.systemuserid && !seenIds[u.systemuserid.toLowerCase()]) {
+                        seenIds[u.systemuserid.toLowerCase()] = true;
+                        allMembers.push(u);
+                    }
+                });
+            }
+        }
+    });
+    return allMembers;
+}
+
+function getQueueName(queueId) {
+    if (!queueId) return null;
+    var ids = queueId.split(',');
+    var names = [];
+    ids.forEach(function (id) {
+        id = id.trim();
+        var q = queues.find(function (q) { return q.queueid === id; });
+        if (q) names.push(q.name);
+    });
+    return names.length ? names.join(', ') : null;
+}
+
+function getNotifDate(n) {
+    if (n.maulabs_status === 2 && n.maulabs_senton) return n.maulabs_senton;
+    if (n.maulabs_status === 1 && n.maulabs_scheduledon) return n.maulabs_scheduledon;
+    return n.createdon || "";
+}
+
+function sortNotifs(col) {
+    if (sortColumn === col) {
+        sortDirection = sortDirection === "asc" ? "desc" : "asc";
+    } else {
+        sortColumn = col;
+        sortDirection = "asc";
+    }
+    renderNotifications();
+}
+
+function updateSortIcons() {
+    ["title", "category", "priority", "status", "date", "acks"].forEach(function (col) {
+        var el = document.getElementById("sortIcon_" + col);
+        if (el) el.textContent = sortColumn === col ? (sortDirection === "asc" ? "\u25B2" : "\u25BC") : "";
+    });
+}
+
+function filterNotifications() {
+    renderNotifications();
+}
+
+function getFilteredSortedNotifs() {
+    var searchTerm = (document.getElementById("searchBar").value || "").toLowerCase().trim();
+    var list = notifications;
+    if (searchTerm) {
+        list = list.filter(function (n) {
+            var title = (n.maulabs_title || "").toLowerCase();
+            var msg = (n.maulabs_message || "").toLowerCase();
+            return title.indexOf(searchTerm) !== -1 || msg.indexOf(searchTerm) !== -1;
+        });
+    }
+    if (sortColumn) {
+        list = list.slice().sort(function (a, b) {
+            var va, vb;
+            switch (sortColumn) {
+                case "title":
+                    va = (a.maulabs_title || "").toLowerCase();
+                    vb = (b.maulabs_title || "").toLowerCase();
+                    break;
+                case "category":
+                    var ca = categories.find(function (c) { return c.maulabs_notificationcategoryid === a._maulabs_categoryid_value; });
+                    var cb = categories.find(function (c) { return c.maulabs_notificationcategoryid === b._maulabs_categoryid_value; });
+                    va = ca ? ca.name.toLowerCase() : "";
+                    vb = cb ? cb.name.toLowerCase() : "";
+                    break;
+                case "priority":
+                    va = a.maulabs_priority || 0;
+                    vb = b.maulabs_priority || 0;
+                    break;
+                case "status":
+                    va = a.maulabs_status || 0;
+                    vb = b.maulabs_status || 0;
+                    break;
+                case "date":
+                    va = getNotifDate(a);
+                    vb = getNotifDate(b);
+                    break;
+                case "acks":
+                    va = ackCounts[a.maulabs_supervisornotificationid.toLowerCase()] || 0;
+                    vb = ackCounts[b.maulabs_supervisornotificationid.toLowerCase()] || 0;
+                    break;
+                default:
+                    va = ""; vb = "";
+            }
+            if (va < vb) return sortDirection === "asc" ? -1 : 1;
+            if (va > vb) return sortDirection === "asc" ? 1 : -1;
+            return 0;
+        });
+    }
+    return list;
+}
+
+function renderNotifications() {
+    var filtered = getFilteredSortedNotifs();
+    var tbody = document.getElementById("notifList");
+    document.getElementById("notifCount").textContent = filtered.length + " notification" + (filtered.length === 1 ? "" : "s");
+    updateSortIcons();
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">' + (notifications.length ? 'No matching notifications' : 'No notifications found. Click "+ New Notification" to create one.') + '</td></tr>';
+        return;
+    }
+
+    var html = "";
+    filtered.forEach(function (n) {
+        var id = n.maulabs_supervisornotificationid;
+        var st = n.maulabs_status || 0;
+        var pr = n.maulabs_priority || 0;
+        var cat = categories.find(function (c) { return c.maulabs_notificationcategoryid === n._maulabs_categoryid_value; });
+        var ackCount = ackCounts[id.toLowerCase()] || 0;
+
+        html += "<tr>";
+        html += "<td><strong>" + esc(n.maulabs_title || "") + "</strong>";
+        if (n.maulabs_message) {
+            var preview = n.maulabs_message.length > 80 ? n.maulabs_message.substring(0, 80) + "..." : n.maulabs_message;
+            html += '<div style="font-size:11px;color:#999;margin-top:2px">' + esc(preview) + "</div>";
+        }
+        html += "</td>";
+        html += "<td>";
+        if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + " " + esc(cat.maulabs_name) + "</span>";
+        else html += '<span style="color:#ccc">-</span>';
+        html += "</td>";
+        html += '<td><span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">';
+        if (pr === 2) html += "&#128680; ";
+        else if (pr === 1) html += "&#9888;&#65039; ";
+        html += PRIORITY_LABELS[pr] + "</span></td>";
+        html += '<td><span class="badge ' + STATUS_CLASSES[st] + '">' + STATUS_LABELS[st] + "</span></td>";
+        html += "<td>";
+        if (st === 2 && n.maulabs_senton) html += '<span style="font-size:12px">' + fmtDate(n.maulabs_senton) + "</span>";
+        else if (st === 1 && n.maulabs_scheduledon) {
+            var isPast = new Date(n.maulabs_scheduledon) <= new Date();
+            html += '<span style="font-size:12px;color:' + (isPast ? "#d13438" : "#2563eb") + '">' + fmtDate(n.maulabs_scheduledon) + (isPast ? " !" : "") + "</span>";
+        }
+        else html += '<span style="font-size:12px;color:#bbb">' + fmtDate(n.createdon) + "</span>";
+        html += "</td>";
+        html += "<td>";
+        if (st >= 1) html += '<span class="ack-badge">' + ackCount + "</span>";
+        else html += '<span style="color:#ccc">-</span>';
+        html += "</td>";
+        html += "<td>";
+        if (st === 0) {
+            html += '<button class="btn btn-sm" style="background:#2563eb;color:#fff;margin-right:4px" onclick="quickSendNotif(\'' + id + "')\" title=\"Send now\">Send</button>";
+            html += '<button class="btn-edit" title="Edit" onclick="openNotifModal(\'' + id + "')\">\u270F\uFE0F</button>";
+            html += '<button class="btn-delete-icon" title="Delete" onclick="deleteNotif(\'' + id + '\')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>';
+        } else if (st === 1) {
+            html += '<button class="btn btn-sm" style="background:#2563eb;color:#fff;margin-right:4px" onclick="quickSendNotif(\'' + id + '\')">Send Now</button>';
+            html += '<button class="btn btn-sm btn-ghost" style="font-size:11px" onclick="cancelSchedule(\'' + id + '\')">Cancel</button>';
+        } else {
+            html += '<button class="btn btn-sm btn-ghost" onclick="viewNotifDetails(\'' + id + '\')">Details</button>';
+        }
+        html += "</td></tr>";
+    });
+    tbody.innerHTML = html;
+}
+
+// Notification Modal
+function openNotifModal(id) {
+    editingNotifId = id || null;
+    scheduleMode = false;
+    document.getElementById("scheduleGroup").style.display = "none";
+    var btnSch = document.getElementById("btnSchedule");
+    btnSch.textContent = "Schedule";
+    btnSch.onclick = function () { handleSchedule(); };
+
+    var n = null;
+    if (id) n = notifications.find(function (x) { return x.maulabs_supervisornotificationid === id; });
+
+    document.getElementById("notifModalTitle").textContent = n ? "Edit Notification" : "New Notification";
+    document.getElementById("nfTitle").value = n ? (n.maulabs_title || "") : "";
+    document.getElementById("nfCategory").value = n ? (n._maulabs_categoryid_value || "") : "";
+    document.getElementById("nfPriority").value = n ? String(n.maulabs_priority || 0) : "0";
+    document.getElementById("nfMessage").value = n ? (n.maulabs_message || "") : "";
+    document.getElementById("nfImageUrl").value = n ? (n.maulabs_imageurl || "") : "";
+    document.getElementById("nfLinkUrl").value = n ? (n.maulabs_linkurl || "") : "";
+    document.getElementById("nfLinkText").value = n ? (n.maulabs_linktext || "") : "";
+    // Restore queue selections
+    selectedQueueIds = [];
+    if (n && n.maulabs_targetqueue) {
+        selectedQueueIds = n.maulabs_targetqueue.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+    updateQueueDisplay();
+    document.getElementById("nfScheduledOn").value = "";
+
+    document.getElementById("notifModal").classList.add("active");
+}
+
+function closeNotifModal() {
+    document.getElementById("notifModal").classList.remove("active");
+    document.getElementById("queueDropdown").classList.remove("open");
+    editingNotifId = null;
+    scheduleMode = false;
+    selectedQueueIds = [];
+}
+
+function getNotifFormData() {
+    var title = document.getElementById("nfTitle").value.trim();
+    var message = document.getElementById("nfMessage").value.trim();
+    if (!title) { toast("Title is required.", true); return null; }
+    if (!message) { toast("Message is required.", true); return null; }
+
+    var catVal = document.getElementById("nfCategory").value;
+
+    var result = {
+        maulabs_title: title,
+        maulabs_message: message,
+        maulabs_priority: parseInt(document.getElementById("nfPriority").value, 10),
+        maulabs_imageurl: document.getElementById("nfImageUrl").value.trim() || null,
+        maulabs_linkurl: document.getElementById("nfLinkUrl").value.trim() || null,
+        maulabs_linktext: document.getElementById("nfLinkText").value.trim() || null,
+        maulabs_targetqueue: selectedQueueIds.length ? selectedQueueIds.join(',') : null
+    };
+    if (catVal) {
+        result["maulabs_categoryid@odata.bind"] = "/" + CAT_SET + "(" + catVal + ")";
+    } else {
+        result["maulabs_categoryid@odata.bind"] = null;
+    }
+    return result;
+}
+
+function saveNotif(status) {
+    var data = getNotifFormData();
+    if (!data) return;
+    data.maulabs_status = status;
+
+    if (status === 1) {
+        var schedVal = document.getElementById("nfScheduledOn").value;
+        if (!schedVal) { toast("Please select a schedule date and time.", true); return; }
+        var utcIso = convertScheduleToUTC();
+        if (!utcIso) { toast("Invalid schedule date.", true); return; }
+        var schedDate = new Date(utcIso);
+        if (schedDate <= new Date()) { toast("Schedule date must be in the future.", true); return; }
+        data.maulabs_scheduledon = utcIso;
+    }
+    if (status === 2) {
+        data.maulabs_senton = new Date().toISOString();
+    }
+
+    var method, url;
+    if (editingNotifId) {
+        method = "PATCH";
+        url = "/api/data/v9.2/" + NOTIF_SET + "(" + editingNotifId + ")";
+    } else {
+        method = "POST";
+        url = "/api/data/v9.2/" + NOTIF_SET;
+    }
+
+    var savedNotifId = editingNotifId;
+    disableModalButtons(true);
+    apiCallAsync(method, url, data).then(function (xhr) {
+        disableModalButtons(false);
+        if (xhr.status === 204 || xhr.status === 200 || xhr.status === 201) {
+            var msgs = ["Draft saved!", "Notification scheduled!", "Notification sent!"];
+            toast(msgs[status] || "Saved!");
+            closeNotifModal();
+            loadNotifications();
+            // If sent, push native D365 in-app notifications to all users
+            if (status === 2) {
+                var notifId = savedNotifId;
+                if (!notifId && xhr.getResponseHeader) {
+                    var entityId = xhr.getResponseHeader("OData-EntityId");
+                    if (entityId) {
+                        var m = entityId.match(/\(([^)]+)\)/);
+                        if (m) notifId = m[1];
+                    }
+                }
+                if (notifId) sendNativeNotifications(notifId, data.maulabs_title, data.maulabs_message, data.maulabs_priority, data.maulabs_targetqueue);
+            }
+        } else {
+            var msg = "Error (HTTP " + xhr.status + ")";
+            try { msg = JSON.parse(xhr.responseText).error.message; } catch (e) {}
+            toast(msg, true);
+        }
+    }).catch(function () {
+        disableModalButtons(false);
+        toast("Request failed.", true);
+    });
+}
+
+function handleSchedule() {
+    if (!scheduleMode) {
+        scheduleMode = true;
+        document.getElementById("scheduleGroup").style.display = "block";
+        var btn = document.getElementById("btnSchedule");
+        btn.textContent = "Confirm Schedule";
+        btn.onclick = function () { saveNotif(1); };
+        updateTzHint();
+    } else {
+        saveNotif(1);
+    }
+}
+
+function updateTzHint() {
+    var tzValue = document.getElementById("nfTimezone").value;
+    var now = new Date();
+    try {
+        var formatted = now.toLocaleString("en-US", { timeZone: tzValue, hour: "2-digit", minute: "2-digit", hour12: true, timeZoneName: "short" });
+        document.getElementById("tzHint").textContent = "Current time in selected timezone: " + formatted;
+    } catch (e) {
+        document.getElementById("tzHint").textContent = "";
+    }
+}
+
+function convertScheduleToUTC() {
+    var localVal = document.getElementById("nfScheduledOn").value;
+    var tz = document.getElementById("nfTimezone").value;
+    if (!localVal) return null;
+    // Build an ISO string interpreted in the selected timezone
+    // Use the Intl API to find the UTC offset for that timezone at the given date
+    var parts = localVal.split("T");
+    var dateParts = parts[0].split("-");
+    var timeParts = parts[1].split(":");
+    var year = parseInt(dateParts[0], 10);
+    var month = parseInt(dateParts[1], 10) - 1;
+    var day = parseInt(dateParts[2], 10);
+    var hour = parseInt(timeParts[0], 10);
+    var minute = parseInt(timeParts[1], 10);
+    // Create a date in UTC, then find what that timezone shows, then adjust
+    var guess = new Date(Date.UTC(year, month, day, hour, minute, 0));
+    var formatter = new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    var inTz = formatter.format(guess);
+    // Parse formatted result: MM/DD/YYYY, HH:MM:SS
+    var fp = inTz.replace(",", "").split(" ");
+    var dp = fp[0].split("/");
+    var tp = fp[1].split(":");
+    var tzDate = new Date(Date.UTC(parseInt(dp[2],10), parseInt(dp[0],10)-1, parseInt(dp[1],10), parseInt(tp[0],10), parseInt(tp[1],10), parseInt(tp[2],10)));
+    var offsetMs = tzDate.getTime() - guess.getTime();
+    var utcDate = new Date(guess.getTime() - offsetMs);
+    return utcDate.toISOString();
+}
+
+function quickSendNotif(id) {
+    var notif = notifications.find(function (n) { return n.maulabs_supervisornotificationid === id; });
+    var queueNames = notif && notif.maulabs_targetqueue ? getQueueName(notif.maulabs_targetqueue) : null;
+    var msg = queueNames ? "Send this notification now?\\nOnly members of: " + queueNames + " will receive it." : "Send this notification now?\\nAll agents will receive it.";
+    if (!confirm(msg)) return;
+    apiCallAsync("PATCH", "/api/data/v9.2/" + NOTIF_SET + "(" + id + ")", {
+        maulabs_status: 2,
+        maulabs_senton: new Date().toISOString()
+    }).then(function (xhr) {
+        if (xhr.status === 204) {
+            toast("Notification sent!");
+            loadNotifications();
+            if (notif) sendNativeNotifications(id, notif.maulabs_title, notif.maulabs_message, notif.maulabs_priority, notif.maulabs_targetqueue);
+        }
+        else toast("Failed to send.", true);
+    });
+}
+
+function cancelSchedule(id) {
+    if (!confirm("Cancel this schedule? The notification will be moved back to Draft.")) return;
+    apiCallAsync("PATCH", "/api/data/v9.2/" + NOTIF_SET + "(" + id + ")", {
+        maulabs_status: 0,
+        maulabs_scheduledon: null
+    }).then(function (xhr) {
+        if (xhr.status === 204) { toast("Schedule cancelled - moved to Draft."); loadNotifications(); }
+        else toast("Failed to cancel.", true);
+    });
+}
+
+function deleteNotif(id) {
+    if (!confirm("Delete this notification permanently?")) return;
+    apiCallAsync("DELETE", "/api/data/v9.2/" + NOTIF_SET + "(" + id + ")").then(function (xhr) {
+        if (xhr.status === 204) { toast("Notification deleted!"); loadNotifications(); }
+        else toast("Failed to delete.", true);
+    });
+}
+
+function disableModalButtons(disabled) {
+    ["btnSaveDraft", "btnSchedule", "btnSendNow"].forEach(function (id) {
+        var btn = document.getElementById(id);
+        if (btn) btn.disabled = disabled;
+    });
+}
+
+// Notification Detail Modal
+function viewNotifDetails(id) {
+    var n = notifications.find(function (x) { return x.maulabs_supervisornotificationid === id; });
+    if (!n) return;
+
+    var cat = categories.find(function (c) { return c.maulabs_notificationcategoryid === n._maulabs_categoryid_value; });
+    var st = n.maulabs_status || 0;
+    var pr = n.maulabs_priority || 0;
+
+    var html = '<div class="report-meta" style="margin-bottom:12px">';
+    if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + " " + esc(cat.maulabs_name) + "</span>";
+    html += '<span class="badge ' + STATUS_CLASSES[st] + '">' + STATUS_LABELS[st] + "</span>";
+    html += '<span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">' + PRIORITY_LABELS[pr] + "</span>";
+    html += "</div>";
+
+    html += '<div style="font-size:13px;line-height:1.7;margin-bottom:12px;white-space:pre-wrap">' + esc(n.maulabs_message || "") + "</div>";
+
+    if (n.maulabs_imageurl) html += '<div style="margin-bottom:12px"><img src="' + esc(n.maulabs_imageurl) + '" style="max-width:100%;border-radius:6px;border:1px solid #e0e0e0" onerror="this.style.display=\'none\'" /></div>';
+    if (n.maulabs_linkurl) html += '<div style="margin-bottom:12px"><a href="' + esc(n.maulabs_linkurl) + '" target="_blank" rel="noopener noreferrer" style="color:var(--primary);font-weight:600">' + esc(n.maulabs_linktext || n.maulabs_linkurl) + "</a></div>";
+
+    if (n.maulabs_senton) html += '<div style="font-size:12px;color:#888">Sent: ' + fmtDate(n.maulabs_senton) + "</div>";
+    else if (n.maulabs_scheduledon) html += '<div style="font-size:12px;color:#888">Scheduled: ' + fmtDate(n.maulabs_scheduledon) + "</div>";
+    html += '<div style="font-size:12px;color:#888">Created: ' + fmtDate(n.createdon) + "</div>";
+
+    var ackCount = ackCounts[id.toLowerCase()] || 0;
+    html += '<div style="margin-top:12px"><span class="ack-badge">' + ackCount + " acknowledgment" + (ackCount !== 1 ? "s" : "") + "</span></div>";
+
+    document.getElementById("detailModalTitle").textContent = n.maulabs_title || "Notification";
+    document.getElementById("detailContent").innerHTML = html;
+    viewingDetailId = id;
+    // Show View Stats only for sent/scheduled
+    document.getElementById("btnViewStats").style.display = (n.maulabs_status >= 1) ? "" : "none";
+    document.getElementById("detailModal").classList.add("active");
+}
+
+function goToNotifStats() {
+    closeDetailModal();
+    switchTab("reports");
+    showReportDetail(viewingDetailId);
+}
+
+function closeDetailModal() {
+    document.getElementById("detailModal").classList.remove("active");
+}
+
+// PREVIEW
+function showPreview() {
+    var data = getNotifFormData();
+    if (!data) return;
+
+    var catVal = document.getElementById("nfCategory").value;
+    var cat = catVal ? categories.find(function (c) { return c.maulabs_notificationcategoryid === catVal; }) : null;
+    var pr = data.maulabs_priority || 0;
+
+    var html = '';
+    // Category + Priority badges
+    html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">';
+    if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + ' ' + esc(cat.maulabs_name) + '</span>';
+    html += '<span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">';
+    if (pr === 2) html += '&#128680; ';
+    else if (pr === 1) html += '&#9888;&#65039; ';
+    html += PRIORITY_LABELS[pr] + '</span>';
+    html += '</div>';
+
+    // Title
+    html += '<h3 style="font-size:17px;font-weight:700;margin-bottom:12px">' + esc(data.maulabs_title) + '</h3>';
+
+    // Message
+    html += '<div style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin-bottom:16px;color:#333">' + esc(data.maulabs_message) + '</div>';
+
+    // Image
+    if (data.maulabs_imageurl) {
+        html += '<div style="margin-bottom:16px"><img src="' + esc(data.maulabs_imageurl) + '" style="max-width:100%;border-radius:8px;border:1px solid #e0e0e0" onerror="this.style.display=\'none\'" /></div>';
+    }
+
+    // Link
+    if (data.maulabs_linkurl) {
+        html += '<div style="margin-bottom:16px"><a href="' + esc(data.maulabs_linkurl) + '" target="_blank" rel="noopener noreferrer" style="color:var(--primary);font-weight:600;text-decoration:none">';
+        html += esc(data.maulabs_linktext || data.maulabs_linkurl) + ' &#8594;</a></div>';
+    }
+
+    // Simulated acknowledge button
+    html += '<div style="border-top:1px solid var(--border);padding-top:16px;margin-top:8px;display:flex;justify-content:flex-end">';
+    html += '<button style="padding:10px 28px;border-radius:6px;font-size:14px;font-weight:600;border:none;background:#16a34a;color:#fff;cursor:default;opacity:0.85">&#10003; Acknowledge</button>';
+    html += '</div>';
+
+    document.getElementById('previewBody').innerHTML = html;
+    document.getElementById('previewModal').classList.add('active');
+}
+
+function closePreview() {
+    document.getElementById('previewModal').classList.remove('active');
+}
+
+// REPORTS
+var reportView = "dashboard"; // "dashboard" or "detail"
+
+function populateReportSelector() {
+    showReportsDashboard();
+}
+
+function showReportsDashboard() {
+    reportView = "dashboard";
+    document.getElementById("reportsDashboard").style.display = "block";
+    document.getElementById("reportsDetail").style.display = "none";
+    renderDashboard();
+}
+
+function showReportDetail(notifId) {
+    reportView = "detail";
+    document.getElementById("reportsDashboard").style.display = "none";
+    document.getElementById("reportsDetail").style.display = "block";
+    renderReportDetail(notifId);
+}
+
+function renderDashboard() {
+    var container = document.getElementById("reportsDashboard");
+
+    // Fetch total users count once
+    if (!dashTotalUsers) {
+        var usersXhr = apiCall("GET",
+            "/api/data/v9.2/systemusers?$select=systemuserid" +
+            "&$filter=isdisabled eq false and accessmode ne 4" +
+            "&$count=true");
+        if (usersXhr.status === 200) {
+            var usersData = JSON.parse(usersXhr.responseText);
+            dashTotalUsers = usersData["@odata.count"] || (usersData.value ? usersData.value.length : 0);
+        }
+        if (!dashTotalUsers) dashTotalUsers = 1;
+    }
+
+    // Apply date filter
+    var filtered = notifications;
+    if (dashDateFrom || dashDateTo) {
+        filtered = notifications.filter(function (n) {
+            var d = n.maulabs_senton || n.maulabs_scheduledon || '';
+            if (!d) return false;
+            var ds = d.substring(0, 10);
+            if (dashDateFrom && ds < dashDateFrom) return false;
+            if (dashDateTo && ds > dashDateTo) return false;
+            return true;
+        });
+    }
+
+    var sent = filtered.filter(function (n) { return n.maulabs_status >= 1; });
+    var totalSent = sent.filter(function (n) { return n.maulabs_status === 2; }).length;
+    var totalScheduled = sent.filter(function (n) { return n.maulabs_status === 1; }).length;
+    var totalDrafts = filtered.filter(function (n) { return n.maulabs_status === 0; }).length;
+    var totalAcks = 0;
+    filtered.forEach(function (n) {
+        var nid = n.maulabs_supervisornotificationid.toLowerCase();
+        totalAcks += ackCounts[nid] || 0;
+    });
+
+    var html = '';
+    // Section header with date filter
+    html += '<div class="dash-section-title" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px">';
+    html += '<div><h2>Analytics Dashboard</h2><p>Overview of notification performance and acknowledgment metrics</p></div>';
+    html += '<div class="dash-date-filter">';
+    html += '<label>From</label><input type="date" id="dashDateFrom" value="' + dashDateFrom + '" onchange="applyDashDateFilter()" />';
+    html += '<label>To</label><input type="date" id="dashDateTo" value="' + dashDateTo + '" onchange="applyDashDateFilter()" />';
+    if (dashDateFrom || dashDateTo) html += '<button class="dash-date-clear" onclick="clearDashDateFilter()">Clear</button>';
+    html += '</div>';
+    html += '</div>';
+
+    // KPI cards
+    html += '<div class="kpi-row" style="padding-top:20px;padding-bottom:8px">';
+    html += '<div class="kpi-card"><div class="kpi-value">' + totalSent + '</div><div class="kpi-label">Sent</div></div>';
+    html += '<div class="kpi-card"><div class="kpi-value">' + totalScheduled + '</div><div class="kpi-label">Scheduled</div></div>';
+    html += '<div class="kpi-card"><div class="kpi-value">' + totalDrafts + '</div><div class="kpi-label">Drafts</div></div>';
+    html += '<div class="kpi-card"><div class="kpi-value">' + totalAcks + '</div><div class="kpi-label">Acknowledgments</div></div>';
+    html += '<div class="kpi-card"><div class="kpi-value">' + filtered.length + '</div><div class="kpi-label">Total</div></div>';
+    html += '</div>';
+
+    // 2 side-by-side charts
+    html += '<div class="dashboard-grid" style="grid-template-columns:1fr 1fr">';
+    html += '<div class="dash-card" style="animation-delay:0.1s"><h4>Acknowledgment Rate</h4><div id="chartAckRate"></div></div>';
+    html += '<div class="dash-card" style="animation-delay:0.15s"><h4>Acknowledgments Over Time</h4><div id="chartAckTimeline"></div></div>';
+    html += '<div class="dash-card full-width" style="animation-delay:0.2s"><h4>Notifications</h4><div id="dashNotifList"></div></div>';
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    setTimeout(function () {
+        renderAckRateChart("chartAckRate");
+        renderAckTimeline("chartAckTimeline");
+        renderDashNotifList("dashNotifList");
+    }, 50);
+}
+
+function applyDashDateFilter() {
+    dashDateFrom = document.getElementById('dashDateFrom').value || '';
+    dashDateTo = document.getElementById('dashDateTo').value || '';
+    renderDashboard();
+}
+function clearDashDateFilter() {
+    dashDateFrom = '';
+    dashDateTo = '';
+    renderDashboard();
+}
+
+function renderDonutChart(containerId, data) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var width = el.clientWidth || 260;
+    var height = 200;
+    var radius = Math.min(width, height) / 2 - 10;
+    var total = d3.sum(data, function (d) { return d.value; });
+    if (total === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">No data</div>'; return; }
+
+    var svg = d3.select("#" + containerId).append("svg")
+        .attr("width", width).attr("height", height + 40)
+        .append("g").attr("transform", "translate(" + width / 2 + "," + (height / 2) + ")");
+
+    var arc = d3.arc().innerRadius(radius * 0.55).outerRadius(radius);
+    var pie = d3.pie().value(function (d) { return d.value; }).sort(null).padAngle(0.03);
+
+    var tooltip = d3.select("body").append("div").attr("class", "chart-tooltip").style("opacity", 0);
+
+    svg.selectAll("path").data(pie(data)).enter().append("path")
+        .attr("d", arc)
+        .attr("fill", function (d) { return d.data.color; })
+        .attr("stroke", "#fff").attr("stroke-width", 2)
+        .style("cursor", "pointer")
+        .on("mouseover", function (event, d) {
+            d3.select(this).transition().duration(150).attr("d", d3.arc().innerRadius(radius * 0.55).outerRadius(radius + 6));
+            tooltip.transition().duration(150).style("opacity", 1);
+            tooltip.html(d.data.label + ": <b>" + d.data.value + "</b> (" + Math.round(d.data.value / total * 100) + "%)")
+                .style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function () {
+            d3.select(this).transition().duration(150).attr("d", arc);
+            tooltip.transition().duration(150).style("opacity", 0);
+        });
+
+    // Center text
+    svg.append("text").attr("text-anchor", "middle").attr("dy", "-0.1em")
+        .style("font-size", "28px").style("font-weight", "800").style("fill", "var(--text)").text(total);
+    svg.append("text").attr("text-anchor", "middle").attr("dy", "1.4em")
+        .style("font-size", "11px").style("fill", "var(--text-secondary)").text("TOTAL");
+
+    // Legend below
+    var legend = d3.select("#" + containerId).select("svg").append("g")
+        .attr("transform", "translate(" + (width / 2 - data.length * 50) + "," + (height + 12) + ")");
+    data.forEach(function (d, i) {
+        var g = legend.append("g").attr("transform", "translate(" + (i * 100) + ",0)");
+        g.append("circle").attr("r", 5).attr("fill", d.color).attr("cy", 0);
+        g.append("text").attr("x", 10).attr("dy", "0.35em")
+            .style("font-size", "11px").style("fill", "var(--text-secondary)").text(d.label + " (" + d.value + ")");
+    });
+}
+
+function renderBarChart(containerId, data) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var width = el.clientWidth || 260;
+    var height = 180;
+    var margin = { top: 10, right: 20, bottom: 40, left: 40 };
+    var total = d3.sum(data, function (d) { return d.value; });
+    if (total === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">No data</div>'; return; }
+
+    var svg = d3.select("#" + containerId).append("svg")
+        .attr("width", width).attr("height", height);
+    var g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+    var innerW = width - margin.left - margin.right;
+    var innerH = height - margin.top - margin.bottom;
+
+    var x = d3.scaleBand().domain(data.map(function (d) { return d.label; })).range([0, innerW]).padding(0.4);
+    var y = d3.scaleLinear().domain([0, d3.max(data, function (d) { return d.value; }) * 1.15]).range([innerH, 0]);
+
+    // Grid lines
+    g.selectAll(".grid-line").data(y.ticks(4)).enter().append("line")
+        .attr("x1", 0).attr("x2", innerW)
+        .attr("y1", function (d) { return y(d); }).attr("y2", function (d) { return y(d); })
+        .attr("stroke", "#e8e8e8").attr("stroke-dasharray", "3,3");
+
+    var tooltip = d3.select("body").append("div").attr("class", "chart-tooltip").style("opacity", 0);
+
+    g.selectAll("rect").data(data).enter().append("rect")
+        .attr("x", function (d) { return x(d.label); })
+        .attr("width", x.bandwidth())
+        .attr("y", innerH).attr("height", 0)
+        .attr("rx", 4)
+        .attr("fill", function (d) { return d.color; })
+        .style("cursor", "pointer")
+        .on("mouseover", function (event, d) {
+            d3.select(this).attr("opacity", 0.8);
+            tooltip.transition().duration(150).style("opacity", 1);
+            tooltip.html(d.label + ": <b>" + d.value + "</b>")
+                .style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function () {
+            d3.select(this).attr("opacity", 1);
+            tooltip.transition().duration(150).style("opacity", 0);
+        })
+        .transition().duration(600).ease(d3.easeCubicOut)
+        .attr("y", function (d) { return y(d.value); })
+        .attr("height", function (d) { return innerH - y(d.value); });
+
+    // Value labels on top
+    g.selectAll(".val-label").data(data).enter().append("text")
+        .attr("x", function (d) { return x(d.label) + x.bandwidth() / 2; })
+        .attr("y", function (d) { return y(d.value) - 6; })
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px").style("font-weight", "700").style("fill", "var(--text)")
+        .text(function (d) { return d.value; });
+
+    // X axis labels
+    g.append("g").attr("transform", "translate(0," + innerH + ")")
+        .call(d3.axisBottom(x).tickSize(0)).select(".domain").remove();
+    g.selectAll(".tick text").style("font-size", "11px").style("fill", "var(--text-secondary)");
+}
+
+function renderCategoryChart(containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var catMap = {};
+    notifications.forEach(function (n) {
+        var catId = n._maulabs_categoryid_value || "_none";
+        if (!catMap[catId]) catMap[catId] = 0;
+        catMap[catId]++;
+    });
+    var data = [];
+    var chartColors = ["#5B5FC7", "#2563eb", "#16a34a", "#f59e0b", "#d13438", "#E3008C", "#00B7C3", "#8E562E", "#6B69D6", "#57811E"];
+    var colorIdx = 0;
+    Object.keys(catMap).forEach(function (catId) {
+        var cat = categories.find(function (c) { return c.maulabs_notificationcategoryid === catId; });
+        var label = cat ? (cat.maulabs_emoji + " " + cat.maulabs_name) : "Uncategorized";
+        var color = cat ? cat.maulabs_color : "#9ca3af";
+        data.push({ label: label, value: catMap[catId], color: color || chartColors[colorIdx++ % chartColors.length] });
+    });
+    data.sort(function (a, b) { return b.value - a.value; });
+
+    if (data.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">No data</div>'; return; }
+
+    // Horizontal bar chart
+    var width = el.clientWidth || 260;
+    var barH = 28;
+    var gap = 8;
+    var height = data.length * (barH + gap) + 10;
+    var maxVal = d3.max(data, function (d) { return d.value; });
+    var margin = { left: 120, right: 50 };
+
+    var svg = d3.select("#" + containerId).append("svg")
+        .attr("width", width).attr("height", height);
+
+    var tooltip = d3.select("body").append("div").attr("class", "chart-tooltip").style("opacity", 0);
+
+    data.forEach(function (d, i) {
+        var yPos = i * (barH + gap) + 5;
+        var barWidth = maxVal > 0 ? ((d.value / maxVal) * (width - margin.left - margin.right)) : 0;
+
+        // Label
+        svg.append("text")
+            .attr("x", margin.left - 8).attr("y", yPos + barH / 2)
+            .attr("text-anchor", "end").attr("dy", "0.35em")
+            .style("font-size", "12px").style("fill", "var(--text)").text(d.label);
+
+        // Bar
+        svg.append("rect")
+            .attr("x", margin.left).attr("y", yPos)
+            .attr("width", 0).attr("height", barH)
+            .attr("rx", 4).attr("fill", d.color)
+            .style("cursor", "pointer")
+            .on("mouseover", function (event) {
+                d3.select(this).attr("opacity", 0.8);
+                tooltip.transition().duration(150).style("opacity", 1);
+                tooltip.html(d.label + ": <b>" + d.value + "</b>")
+                    .style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function () {
+                d3.select(this).attr("opacity", 1);
+                tooltip.transition().duration(150).style("opacity", 0);
+            })
+            .transition().duration(600).ease(d3.easeCubicOut)
+            .attr("width", barWidth);
+
+        // Value
+        svg.append("text")
+            .attr("x", margin.left + barWidth + 8).attr("y", yPos + barH / 2)
+            .attr("dy", "0.35em")
+            .style("font-size", "12px").style("font-weight", "700").style("fill", "var(--text)")
+            .text(d.value);
+    });
+}
+
+function renderAckRateChart(containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var sentNotifs = notifications.filter(function (n) { return n.maulabs_status === 2; });
+    // Apply date filter
+    if (dashDateFrom || dashDateTo) {
+        sentNotifs = sentNotifs.filter(function (n) {
+            var d = n.maulabs_senton || n.maulabs_scheduledon || '';
+            if (!d) return false;
+            var ds = d.substring(0, 10);
+            if (dashDateFrom && ds < dashDateFrom) return false;
+            if (dashDateTo && ds > dashDateTo) return false;
+            return true;
+        });
+    }
+    if (sentNotifs.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">No sent notifications' + ((dashDateFrom || dashDateTo) ? ' in this date range' : ' yet') + '</div>'; return; }
+
+    // Use cached total users
+    var totalUsers = dashTotalUsers || 1;
+
+    var data = sentNotifs.map(function (n) {
+        var nid = n.maulabs_supervisornotificationid.toLowerCase();
+        var ackCount = ackCounts[nid] || 0;
+        var pct = Math.round(ackCount / totalUsers * 100);
+        var title = n.maulabs_title || "(no title)";
+        if (title.length > 30) title = title.substring(0, 28) + "...";
+        return { label: title, value: pct, ackCount: ackCount, total: totalUsers, id: n.maulabs_supervisornotificationid };
+    });
+    // Sort by date (most recent first), show up to 15
+    data.reverse();
+    if (data.length > 15) data = data.slice(0, 15);
+
+    var width = el.clientWidth || 600;
+    var barH = 28;
+    var gap = 8;
+    var height = data.length * (barH + gap) + 20;
+    var margin = { left: 200, right: 80 };
+
+    var svg = d3.select("#" + containerId).append("svg")
+        .attr("width", width).attr("height", height);
+
+    var tooltip = d3.select("body").append("div").attr("class", "chart-tooltip").style("opacity", 0);
+
+    data.forEach(function (d, i) {
+        var yPos = i * (barH + gap) + 10;
+        var maxBarW = width - margin.left - margin.right;
+        var barWidth = (d.value / 100) * maxBarW;
+        var color = d.value >= 80 ? "#059669" : d.value >= 50 ? "#d97706" : "#dc2626";
+
+        svg.append("text")
+            .attr("x", margin.left - 8).attr("y", yPos + barH / 2)
+            .attr("text-anchor", "end").attr("dy", "0.35em")
+            .style("font-size", "12px").style("fill", "var(--text)")
+            .style("cursor", "pointer")
+            .text(d.label)
+            .on("click", function () { showReportDetail(d.id); });
+
+        // Background bar
+        svg.append("rect")
+            .attr("x", margin.left).attr("y", yPos)
+            .attr("width", maxBarW).attr("height", barH)
+            .attr("rx", 4).attr("fill", "#f0f0f0");
+
+        // Value bar
+        svg.append("rect")
+            .attr("x", margin.left).attr("y", yPos)
+            .attr("width", 0).attr("height", barH)
+            .attr("rx", 4).attr("fill", color)
+            .style("cursor", "pointer")
+            .on("mouseover", function (event) {
+                tooltip.transition().duration(150).style("opacity", 1);
+                tooltip.html(d.label + ": <b>" + d.value + "%</b> (" + d.ackCount + "/" + d.total + ")")
+                    .style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px");
+            })
+            .on("mouseout", function () { tooltip.transition().duration(150).style("opacity", 0); })
+            .on("click", function () { showReportDetail(d.id); })
+            .transition().duration(600).ease(d3.easeCubicOut)
+            .attr("width", barWidth);
+
+        svg.append("text")
+            .attr("x", margin.left + Math.max(barWidth, 0) + 8).attr("y", yPos + barH / 2)
+            .attr("dy", "0.35em")
+            .style("font-size", "12px").style("font-weight", "700").style("fill", "var(--text)")
+            .text(d.value + "%");
+    });
+}
+
+function renderAckTimeline(containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    // Group sent notifications by date
+    var sentNotifs = notifications.filter(function (n) { return n.maulabs_status === 2 && n.maulabs_senton; });
+    // Apply date filter
+    if (dashDateFrom || dashDateTo) {
+        sentNotifs = sentNotifs.filter(function (n) {
+            var ds = n.maulabs_senton.substring(0, 10);
+            if (dashDateFrom && ds < dashDateFrom) return false;
+            if (dashDateTo && ds > dashDateTo) return false;
+            return true;
+        });
+    }
+    if (sentNotifs.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px">No sent notifications' + ((dashDateFrom || dashDateTo) ? ' in this date range' : ' yet') + '</div>'; return; }
+
+    var dateMap = {};
+    sentNotifs.forEach(function (n) {
+        var day = n.maulabs_senton.substring(0, 10);
+        if (!dateMap[day]) dateMap[day] = { sent: 0, acks: 0 };
+        dateMap[day].sent++;
+        var nid = n.maulabs_supervisornotificationid.toLowerCase();
+        dateMap[day].acks += (ackCounts[nid] || 0);
+    });
+
+    var data = Object.keys(dateMap).sort().map(function (d) {
+        return { date: d, sent: dateMap[d].sent, acks: dateMap[d].acks };
+    });
+    // Last 14 entries max
+    if (data.length > 14) data = data.slice(data.length - 14);
+
+    var width = el.clientWidth || 500;
+    var height = 200;
+    var margin = { top: 10, right: 20, bottom: 50, left: 40 };
+    var innerW = width - margin.left - margin.right;
+    var innerH = height - margin.top - margin.bottom;
+
+    var svg = d3.select("#" + containerId).append("svg")
+        .attr("width", width).attr("height", height + 30);
+    var g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var x = d3.scaleBand().domain(data.map(function (d) { return d.date; })).range([0, innerW]).padding(0.3);
+    var maxY = d3.max(data, function (d) { return Math.max(d.sent, d.acks); }) || 1;
+    var y = d3.scaleLinear().domain([0, maxY * 1.15]).range([innerH, 0]);
+
+    // Grid
+    g.selectAll(".grid-line").data(y.ticks(4)).enter().append("line")
+        .attr("x1", 0).attr("x2", innerW)
+        .attr("y1", function (d) { return y(d); }).attr("y2", function (d) { return y(d); })
+        .attr("stroke", "#e8e8e8").attr("stroke-dasharray", "3,3");
+
+    var subgroups = ["sent", "acks"];
+    var colors = { sent: "#6366f1", acks: "#059669" };
+    var xSub = d3.scaleBand().domain(subgroups).range([0, x.bandwidth()]).padding(0.1);
+
+    var tooltip = d3.select("body").append("div").attr("class", "chart-tooltip").style("opacity", 0);
+
+    data.forEach(function (d) {
+        subgroups.forEach(function (key) {
+            g.append("rect")
+                .attr("x", x(d.date) + xSub(key))
+                .attr("width", xSub.bandwidth())
+                .attr("y", innerH).attr("height", 0)
+                .attr("rx", 3).attr("fill", colors[key])
+                .style("cursor", "pointer")
+                .on("mouseover", function (event) {
+                    tooltip.transition().duration(150).style("opacity", 1);
+                    tooltip.html(d.date + "<br>" + (key === "sent" ? "Sent" : "Acks") + ": <b>" + d[key] + "</b>")
+                        .style("left", (event.pageX + 12) + "px").style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function () { tooltip.transition().duration(150).style("opacity", 0); })
+                .transition().duration(600).ease(d3.easeCubicOut)
+                .attr("y", y(d[key]))
+                .attr("height", innerH - y(d[key]));
+        });
+    });
+
+    // X axis
+    g.append("g").attr("transform", "translate(0," + innerH + ")")
+        .call(d3.axisBottom(x).tickSize(0).tickFormat(function (d) {
+            var parts = d.split("-"); return parts[1] + "/" + parts[2];
+        }))
+        .select(".domain").remove();
+    g.selectAll(".tick text").style("font-size", "10px").style("fill", "var(--text-secondary)")
+        .attr("transform", "rotate(-35)").attr("text-anchor", "end");
+
+    // Legend
+    var legend = svg.append("g").attr("transform", "translate(" + (margin.left) + "," + (height + 10) + ")");
+    [{key: "sent", label: "Sent", color: "#6366f1"}, {key: "acks", label: "Acknowledged", color: "#059669"}].forEach(function (item, i) {
+        var lg = legend.append("g").attr("transform", "translate(" + (i * 130) + ",0)");
+        lg.append("circle").attr("r", 5).attr("fill", item.color);
+        lg.append("text").attr("x", 10).attr("dy", "0.35em")
+            .style("font-size", "11px").style("fill", "var(--text-secondary)").text(item.label);
+    });
+}
+
+function renderDashNotifList(containerId) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var allSent = notifications.filter(function (n) { return n.maulabs_status >= 1; });
+    // Apply date filter
+    var sent = allSent;
+    if (dashDateFrom || dashDateTo) {
+        sent = allSent.filter(function (n) {
+            var d = n.maulabs_senton || n.maulabs_scheduledon || '';
+            if (!d) return false;
+            var ds = d.substring(0, 10);
+            if (dashDateFrom && ds < dashDateFrom) return false;
+            if (dashDateTo && ds > dashDateTo) return false;
+            return true;
+        });
+    }
+    if (sent.length === 0) { el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:20px">No sent or scheduled notifications' + ((dashDateFrom || dashDateTo) ? ' in this date range' : '') + '</div>'; return; }
+
+    var total = dashTotalUsers || 1;
+    var html = '';
+    sent.forEach(function (n) {
+        var cat = categories.find(function (c) { return c.maulabs_notificationcategoryid === n._maulabs_categoryid_value; });
+        var icon = cat ? cat.maulabs_emoji : "\uD83D\uDD14";
+        var color = cat ? cat.maulabs_color : "#9ca3af";
+        var ackCount = ackCounts[n.maulabs_supervisornotificationid.toLowerCase()] || 0;
+        var st = STATUS_LABELS[n.maulabs_status] || "";
+        var date = n.maulabs_senton ? fmtDate(n.maulabs_senton) : (n.maulabs_scheduledon ? fmtDate(n.maulabs_scheduledon) : "");
+        var ackPct = Math.min(100, Math.round(ackCount / total * 100));
+        var pendingPct = 100 - ackPct;
+        var barColor = ackPct >= 70 ? '#059669' : (ackPct >= 40 ? '#d97706' : '#dc2626');
+        html += '<div class="notif-list-item" onclick="showReportDetail(\'' + n.maulabs_supervisornotificationid + '\')">'; 
+        html += '<div class="nl-icon" style="background:' + esc(color) + '18;color:' + esc(color) + ';box-shadow:0 2px 8px ' + esc(color) + '20">' + esc(icon) + '</div>';
+        html += '<div class="nl-info"><div class="nl-title">' + esc(n.maulabs_title) + '</div>';
+        var subParts = st + (date ? " \u00B7 " + date : "");
+        var qn = n.maulabs_targetqueue ? getQueueName(n.maulabs_targetqueue) : null;
+        if (qn) subParts += ' \u00B7 <span style="color:#2563eb">Queue: ' + esc(qn) + '</span>';
+        html += '<div class="nl-sub">' + subParts + '</div></div>';
+        html += '<div class="nl-ack-wrap">';
+        html += '<div class="nl-ack">' + ackCount + ' ack' + (ackCount !== 1 ? 's' : '') + ' <span style="color:' + (pendingPct > 50 ? '#dc2626' : '#94a3b8') + ';font-weight:600">(' + pendingPct + '% pending)</span></div>';
+        html += '<div class="nl-progress"><div class="nl-progress-bar" style="width:' + ackPct + '%;background:' + barColor + '"></div></div>';
+        html += '</div>';
+        html += '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function renderReportDetail(notifId) {
+    var container = document.getElementById("reportsDetail");
+    var notif = notifications.find(function (n) { return n.maulabs_supervisornotificationid === notifId; });
+    if (!notif) { container.innerHTML = '<div class="empty-state">Notification not found.</div>'; return; }
+
+    var xhr = apiCall("GET",
+        "/api/data/v9.2/" + ACK_SET +
+        "?$select=maulabs_name,maulabs_acknowledgedon,_ownerid_value" +
+        "&$filter=maulabs_notificationid eq '" + notifId.toLowerCase() + "'" +
+        "&$orderby=maulabs_acknowledgedon desc");
+
+    var acks = [];
+    if (xhr.status === 200) acks = JSON.parse(xhr.responseText).value;
+
+    // Get target users — scoped to queue if set, otherwise all enabled users
+    var allUsers = [];
+    if (notif.maulabs_targetqueue) {
+        allUsers = getQueueMembers(notif.maulabs_targetqueue);
+    } else {
+        var allUsersXhr = apiCall("GET",
+            "/api/data/v9.2/systemusers?$select=systemuserid,fullname" +
+            "&$filter=isdisabled eq false and accessmode ne 4" +
+            "&$orderby=fullname asc");
+        if (allUsersXhr.status === 200) allUsers = JSON.parse(allUsersXhr.responseText).value;
+    }
+
+    // Build set of user IDs who acknowledged
+    var ackedUserIds = {};
+    acks.forEach(function (a) {
+        var uid = (a._ownerid_value || "").toLowerCase();
+        if (uid) ackedUserIds[uid] = true;
+    });
+
+    // Users who did NOT acknowledge
+    var notAcked = allUsers.filter(function (u) {
+        return !ackedUserIds[u.systemuserid.toLowerCase()];
+    });
+
+    var cat = categories.find(function (c) { return c.maulabs_notificationcategoryid === notif._maulabs_categoryid_value; });
+    var pr = notif.maulabs_priority || 0;
+    var st = notif.maulabs_status || 0;
+    var queueName = notif.maulabs_targetqueue ? getQueueName(notif.maulabs_targetqueue) : null;
+
+    var AVATAR_COLORS = ['#2563eb','#7c3aed','#E3008C','#16a34a','#d13438','#f59e0b','#0E8A7E','#6366f1','#ec4899','#14b8a6'];
+    function getInitials(name) { var p = (name || '?').split(' '); return p.length > 1 ? (p[0][0] + p[p.length-1][0]).toUpperCase() : name.substring(0,2).toUpperCase(); }
+    function avatarColor(name) { var h = 0; for (var i=0;i<(name||'').length;i++) h = ((h<<5)-h)+name.charCodeAt(i); return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length]; }
+
+    var totalRecipients = acks.length + notAcked.length;
+    var ackPct = totalRecipients > 0 ? Math.round(acks.length / totalRecipients * 100) : 0;
+
+    var html = '';
+    html += '<div class="detail-header">';
+    html += '<button class="dash-back-btn" onclick="showReportsDashboard()">\u2190 Back</button>';
+    html += '<div style="flex:1"><h3 style="margin:0">' + esc(notif.maulabs_title) + '</h3>';
+    html += '<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+    if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + ' ' + esc(cat.maulabs_name) + '</span>';
+    html += '<span class="badge ' + STATUS_CLASSES[st] + '">' + STATUS_LABELS[st] + '</span>';
+    html += '<span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">' + PRIORITY_LABELS[pr] + '</span>';
+    if (queueName) html += '<span style="font-size:12px;background:#eff6ff;color:#2563eb;padding:3px 10px;border-radius:100px;font-weight:600">Queue: ' + esc(queueName) + '</span>';
+    html += '</div></div>';
+    html += '</div>';
+
+    // Stat cards with gradient backgrounds
+    html += '<div class="detail-stat-row">';
+    html += '<div class="detail-stat ds-green"><div class="ds-value">' + acks.length + '</div><div class="ds-label">Acknowledged</div></div>';
+    html += '<div class="detail-stat ds-red"><div class="ds-value">' + notAcked.length + '</div><div class="ds-label">Pending</div></div>';
+    html += '<div class="detail-stat ds-blue"><div class="ds-value">' + ackPct + '%</div><div class="ds-label">Ack Rate</div></div>';
+    if (notif.maulabs_senton) html += '<div class="detail-stat ds-purple"><div class="ds-value" style="font-size:14px">' + fmtDate(notif.maulabs_senton) + '</div><div class="ds-label">Sent On</div></div>';
+    else if (notif.maulabs_scheduledon) html += '<div class="detail-stat ds-purple"><div class="ds-value" style="font-size:14px">' + fmtDate(notif.maulabs_scheduledon) + '</div><div class="ds-label">Scheduled</div></div>';
+    html += '</div>';
+
+    // Ack timeline chart
+    html += '<div class="dashboard-grid" style="grid-template-columns:1fr">';
+    html += '<div class="dash-card full-width" style="animation-delay:0.15s"><h4>Acknowledgment Timeline</h4><div id="detailAckChart"></div></div>';
+    html += '</div>';
+
+    // Two side-by-side agent cards
+    html += '<div style="display:flex;gap:20px;padding:0 32px 24px;flex-wrap:wrap">';
+
+    // Acknowledged list
+    html += '<div class="agent-card" style="flex:1;min-width:300px;animation-delay:0.2s">';
+    html += '<h4>Acknowledged <span class="count-pill">' + acks.length + '</span></h4>';
+    html += '<input type="text" class="agent-search" id="ackSearchFilter" placeholder="Search agents..." oninput="filterDetailAckList()" />';
+    html += '<div id="ackListContainer" style="max-height:320px;overflow-y:auto">';
+    if (acks.length) {
+        acks.forEach(function (a) {
+            var agentName = a["_ownerid_value@OData.Community.Display.V1.FormattedValue"] || a._ownerid_value || "Unknown";
+            var ackTime = a.maulabs_acknowledgedon ? fmtDate(a.maulabs_acknowledgedon) : "-";
+            var initials = getInitials(agentName);
+            var avColor = avatarColor(agentName);
+            html += '<div class="agent-row ack-row" data-name="' + esc(agentName).toLowerCase() + '">';
+            html += '<div class="agent-avatar" style="background:' + avColor + '">' + initials + '</div>';
+            html += '<div class="agent-name">' + esc(agentName) + '</div>';
+            html += '<div class="agent-time">' + ackTime + '</div>';
+            html += '</div>';
+        });
+    } else {
+        html += '<div style="text-align:center;color:var(--text-secondary);padding:20px">No acknowledgments yet</div>';
+    }
+    html += '</div></div>';
+
+    // Pending list
+    html += '<div class="agent-card" style="flex:1;min-width:300px;animation-delay:0.25s">';
+    html += '<h4>Pending <span class="count-pill">' + notAcked.length + '</span></h4>';
+    html += '<input type="text" class="agent-search" id="pendingSearchFilter" placeholder="Search agents..." oninput="filterDetailPendingList()" />';
+    html += '<div id="pendingListContainer" style="max-height:320px;overflow-y:auto">';
+    if (notAcked.length) {
+        notAcked.forEach(function (u) {
+            var agentName = u.fullname || "Unknown";
+            var initials = getInitials(agentName);
+            var avColor = avatarColor(agentName);
+            html += '<div class="agent-row pending-row" data-name="' + esc(agentName).toLowerCase() + '">';
+            html += '<div class="agent-avatar" style="background:' + avColor + '">' + initials + '</div>';
+            html += '<div class="agent-name">' + esc(agentName) + '</div>';
+            html += '<div class="agent-time" style="color:#d13438;font-weight:600">Pending</div>';
+            html += '</div>';
+        });
+    } else {
+        html += '<div style="text-align:center;color:var(--success);padding:20px;font-weight:600">Everyone acknowledged!</div>';
+    }
+    html += '</div></div>';
+
+    html += '</div>';
+
+    container.innerHTML = html;
+
+    // Render ack timeline for this notification
+    setTimeout(function () {
+        renderDetailAckChart("detailAckChart", acks);
+    }, 50);
+}
+
+function filterDetailAckList() {
+    var term = (document.getElementById("ackSearchFilter").value || "").toLowerCase().trim();
+    document.querySelectorAll(".ack-row").forEach(function (row) {
+        row.style.display = (row.getAttribute("data-name") || "").indexOf(term) !== -1 ? "" : "none";
+    });
+}
+
+function filterDetailPendingList() {
+    var term = (document.getElementById("pendingSearchFilter").value || "").toLowerCase().trim();
+    document.querySelectorAll(".pending-row").forEach(function (row) {
+        row.style.display = (row.getAttribute("data-name") || "").indexOf(term) !== -1 ? "" : "none";
+    });
+}
+
+function renderDetailAckChart(containerId, acks) {
+    var el = document.getElementById(containerId);
+    if (!el || acks.length === 0) {
+        if (el) el.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:30px">No acknowledgment data</div>';
+        return;
+    }
+    // Group acks by hour
+    var hourMap = {};
+    acks.forEach(function (a) {
+        if (!a.maulabs_acknowledgedon) return;
+        var h = a.maulabs_acknowledgedon.substring(0, 13); // YYYY-MM-DDTHH
+        hourMap[h] = (hourMap[h] || 0) + 1;
+    });
+    var data = Object.keys(hourMap).sort().map(function (h) {
+        var dt = new Date(h + ":00:00Z");
+        var label = (dt.getMonth() + 1) + "/" + dt.getDate() + " " + dt.getHours() + ":00";
+        return { label: label, value: hourMap[h] };
+    });
+    if (data.length > 20) data = data.slice(data.length - 20);
+
+    var width = el.clientWidth || 300;
+    var height = 180;
+    var margin = { top: 10, right: 10, bottom: 50, left: 30 };
+    var innerW = width - margin.left - margin.right;
+    var innerH = height - margin.top - margin.bottom;
+
+    var svg = d3.select("#" + containerId).append("svg")
+        .attr("width", width).attr("height", height);
+    var g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    var x = d3.scaleBand().domain(data.map(function (d) { return d.label; })).range([0, innerW]).padding(0.3);
+    var y = d3.scaleLinear().domain([0, d3.max(data, function (d) { return d.value; }) * 1.2]).range([innerH, 0]);
+
+    g.selectAll("rect").data(data).enter().append("rect")
+        .attr("x", function (d) { return x(d.label); })
+        .attr("width", x.bandwidth())
+        .attr("y", innerH).attr("height", 0).attr("rx", 3)
+        .attr("fill", "#16a34a")
+        .transition().duration(600).ease(d3.easeCubicOut)
+        .attr("y", function (d) { return y(d.value); })
+        .attr("height", function (d) { return innerH - y(d.value); });
+
+    g.selectAll(".val-label").data(data).enter().append("text")
+        .attr("x", function (d) { return x(d.label) + x.bandwidth() / 2; })
+        .attr("y", function (d) { return y(d.value) - 4; })
+        .attr("text-anchor", "middle")
+        .style("font-size", "10px").style("font-weight", "700").style("fill", "var(--text)").text(function (d) { return d.value; });
+
+    g.append("g").attr("transform", "translate(0," + innerH + ")")
+        .call(d3.axisBottom(x).tickSize(0))
+        .select(".domain").remove();
+    g.selectAll(".tick text").style("font-size", "9px").style("fill", "var(--text-secondary)")
+        .attr("transform", "rotate(-40)").attr("text-anchor", "end");
+}
+
+function loadReport() {
+    var notifId = document.getElementById("reportNotifSelect");
+    if (notifId) showReportDetail(notifId.value);
+}
+
+// UTILITY
+function fmtDate(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function esc(s) {
+    var d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+}
+
+function apiCall(method, url, body, extraHeaders) {
+    var xhr = new XMLHttpRequest();
+    xhr.open(method, BASE_URL + url, false);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("OData-MaxVersion", "4.0");
+    xhr.setRequestHeader("OData-Version", "4.0");
+    xhr.setRequestHeader("Prefer", 'odata.include-annotations="*"');
+    if (extraHeaders) {
+        Object.keys(extraHeaders).forEach(function (k) { xhr.setRequestHeader(k, extraHeaders[k]); });
+    }
+    if (body) xhr.send(JSON.stringify(body));
+    else xhr.send();
+    return xhr;
+}
+
+function apiCallAsync(method, url, body, extraHeaders) {
+    return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, BASE_URL + url, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("OData-MaxVersion", "4.0");
+        xhr.setRequestHeader("OData-Version", "4.0");
+        xhr.setRequestHeader("Prefer", 'odata.include-annotations="*"');
+        if (extraHeaders) {
+            Object.keys(extraHeaders).forEach(function (k) { xhr.setRequestHeader(k, extraHeaders[k]); });
+        }
+        xhr.onload = function () { resolve(xhr); };
+        xhr.onerror = function () { reject(xhr); };
+        if (body) xhr.send(JSON.stringify(body));
+        else xhr.send();
+    });
+}
+
+// Send native D365 in-app notifications to targeted users (or all if no queue)
+function sendNativeNotifications(notifId, title, message, priority, queueId) {
+    // Map priority to icon type: 0=Info, 1=Warning, 2=Failure(Urgent)
+    var iconTypes = [100000000, 100000002, 100000003];
+    var iconType = iconTypes[priority] || 100000000;
+
+    // Build body preview (max 200 chars)
+    var bodyPreview = message || "";
+    if (bodyPreview.length > 200) bodyPreview = bodyPreview.substring(0, 197) + "...";
+
+    // Action data: clicking the notification opens the detail popup
+    var actionData = JSON.stringify({
+        actions: [{
+            title: "View Details",
+            data: {
+                url: "?pagetype=webresource&webresourceName=new_NotificationAlert&data=" + notifId,
+                navigationTarget: "dialog"
+            }
+        }]
+    });
+
+    var users;
+    if (queueId) {
+        // Get users who are members of the target queue(s)
+        users = getQueueMembers(queueId);
+        if (!users.length) {
+            toast("No members found in the selected queue(s).", true);
+            return;
+        }
+    } else {
+        // Query all enabled system users
+        var xhr = apiCall("GET",
+            "/api/data/v9.2/systemusers?$select=systemuserid,fullname" +
+            "&$filter=isdisabled eq false and accessmode ne 4" +
+            "&$top=500");
+        if (xhr.status !== 200) {
+            console.error("Failed to query users for native notifications");
+            return;
+        }
+        users = JSON.parse(xhr.responseText).value;
+    }
+    var sent = 0;
+    var failed = 0;
+
+    users.forEach(function (user) {
+        try {
+            var req = apiCall("POST", "/api/data/v9.2/appnotifications", {
+                title: title || "Supervisor Notification",
+                body: bodyPreview,
+                "ownerid@odata.bind": "/systemusers(" + user.systemuserid + ")",
+                icontype: iconType,
+                toasttype: 200000000,
+                ttlinseconds: 86400,
+                data: actionData
+            });
+            if (req.status >= 200 && req.status < 300) sent++;
+            else failed++;
+        } catch (e) { failed++; }
+    });
+    console.log("Native notifications: " + sent + " sent, " + failed + " failed (" + users.length + " users)");
+    if (sent > 0) toast("In-app notifications pushed to " + sent + " user" + (sent !== 1 ? "s" : "") + "!");
+}
+
+function toast(msg, isError) {
+    var el = document.createElement("div");
+    el.className = "toast " + (isError ? "toast-error" : "toast-success");
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 4000);
+}
+
+window.onload = function () {
+    init();
+    var ta = document.getElementById("catDescription");
+    ta.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = this.scrollHeight + "px";
+    });
+};
+</script>
+</body>
+</html>
