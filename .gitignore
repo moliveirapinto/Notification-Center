@@ -3,3 +3,5 @@ node_modules/
 *.zip
 auth.js
 publish-solution.js
+package.json
+package-lock.json
