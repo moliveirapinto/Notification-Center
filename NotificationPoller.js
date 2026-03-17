@@ -16,6 +16,7 @@ var NotificationPoller = (function () {
     var TOP_TIMER_KEY = "_notifPollerTimer";
     var TOP_MAP_KEY = "_notifPollerShownMap";
     var TOP_BANNER_KEY = "_notifPollerBanners";
+    var TOP_QUEUES_KEY = "_notifPollerUserQueues";
 
     // -- Duplicate prevention: window.top + localStorage --
     function _topMap() {
@@ -74,17 +75,73 @@ var NotificationPoller = (function () {
 
         try { if (!window.top[TOP_BANNER_KEY]) window.top[TOP_BANNER_KEY] = {}; } catch (e) {}
 
-        checkForNotifications(userId);
-        var timerId = setInterval(function () {
+        // Load user's queue memberships before starting to poll
+        loadUserQueues(userId, function () {
             checkForNotifications(userId);
-        }, POLL_INTERVAL_MS);
+            var timerId = setInterval(function () {
+                checkForNotifications(userId);
+            }, POLL_INTERVAL_MS);
 
-        try { window.top[TOP_TIMER_KEY] = timerId; } catch (e) {}
+            try { window.top[TOP_TIMER_KEY] = timerId; } catch (e) {}
+        });
+    }
+
+    function loadUserQueues(userId, callback) {
+        try {
+            if (window.top[TOP_QUEUES_KEY]) {
+                console.log("[NotifPoller] User queues already cached");
+                callback();
+                return;
+            }
+        } catch (e) {}
+
+        var fetchXml = '<fetch>' +
+            '<entity name="queue">' +
+            '<attribute name="queueid" />' +
+            '<link-entity name="queuemembership" from="queueid" to="queueid" intersect="true">' +
+            '<filter><condition attribute="systemuserid" operator="eq" value="' + userId + '" /></filter>' +
+            '</link-entity>' +
+            '</entity>' +
+            '</fetch>';
+
+        Xrm.WebApi.retrieveMultipleRecords(
+            "queue",
+            "?fetchXml=" + encodeURIComponent(fetchXml)
+        ).then(
+            function (results) {
+                var qMap = {};
+                if (results.entities) {
+                    results.entities.forEach(function (q) {
+                        qMap[q.queueid.toLowerCase()] = true;
+                    });
+                }
+                try { window.top[TOP_QUEUES_KEY] = qMap; } catch (e) {}
+                console.log("[NotifPoller] User queue memberships loaded: " + Object.keys(qMap).length);
+                callback();
+            },
+            function (err) {
+                console.error("[NotifPoller] Failed to load user queues: " + err.message);
+                try { window.top[TOP_QUEUES_KEY] = {}; } catch (e) {}
+                callback();
+            }
+        );
+    }
+
+    function isUserInTargetQueues(targetQueue) {
+        if (!targetQueue) return true; // No queue targeting = show to everyone
+        var qMap;
+        try { qMap = window.top[TOP_QUEUES_KEY]; } catch (e) { return true; }
+        if (!qMap) return true;
+        var ids = targetQueue.split(',');
+        for (var i = 0; i < ids.length; i++) {
+            if (qMap[ids[i].trim().toLowerCase()]) return true;
+        }
+        return false;
     }
 
     function checkForNotifications(userId) {
         var now = new Date().toISOString();
-        var select = "$select=maulabs_supervisornotificationid,maulabs_title,maulabs_priority,maulabs_status";
+        var select = "$select=maulabs_supervisornotificationid,maulabs_title,maulabs_priority,maulabs_status,maulabs_targetqueue";
         var filter = "$filter=(maulabs_status eq 2) or (maulabs_status eq 1 and maulabs_scheduledon le " + now + ")";
         var orderby = "$orderby=createdon desc";
 
@@ -109,6 +166,13 @@ var NotificationPoller = (function () {
         var notifId = notif.maulabs_supervisornotificationid.toLowerCase();
 
         if (isNotifShown(notifId)) {
+            checkNextUnacked(notifications, idx + 1, userId);
+            return;
+        }
+
+        // Skip if notification targets specific queues and user is not a member
+        if (!isUserInTargetQueues(notif.maulabs_targetqueue)) {
+            markNotifShown(notifId);
             checkNextUnacked(notifications, idx + 1, userId);
             return;
         }
@@ -189,8 +253,8 @@ var NotificationPoller = (function () {
             {
                 target: 2,
                 position: 1,
-                width: { value: 520, unit: "px" },
-                height: { value: 580, unit: "px" },
+                width: { value: 400, unit: "px" },
+                height: { value: 560, unit: "px" },
                 title: "Supervisor Notification"
             }
         ).then(

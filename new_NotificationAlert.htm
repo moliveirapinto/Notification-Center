@@ -63,7 +63,6 @@
     border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
-    color: #fff;
   }
   .priority-badge {
     display: inline-flex;
@@ -218,8 +217,7 @@
 <div class="header" id="headerBar">
   <div class="header-icon" id="headerIcon">&#128276;</div>
   <div>
-    <h1>Supervisor Notification</h1>
-    <p id="headerSub">New message from your supervisor</p>
+    <h1 id="headerTitle">Loading...</h1>
   </div>
 </div>
 
@@ -248,7 +246,7 @@
 <script>
   var NOTIF_ENTITY = "maulabs_supervisornotification";
   var ACK_ENTITY = "maulabs_notificationack";
-  var NOTIF_DEF_PATH = "EntityDefinitions(LogicalName='" + NOTIF_ENTITY + "')";
+  var CAT_SET = "maulabs_notificationcategories";
   var notifRecord = null;
   var categories = [];
 
@@ -269,32 +267,48 @@
 
   function escHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
+  function catBadgeStyle(hex) {
+    hex = (hex || '#888888').replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.substring(0,2),16);
+    var g = parseInt(hex.substring(2,4),16);
+    var b = parseInt(hex.substring(4,6),16);
+    var bg = 'rgba('+r+','+g+','+b+',0.12)';
+    var tr = Math.round(r*0.55);
+    var tg = Math.round(g*0.55);
+    var tb = Math.round(b*0.55);
+    var txt = 'rgb('+tr+','+tg+','+tb+')';
+    return 'background:'+bg+';color:'+txt;
+  }
+
+  function catHeaderStyle(hex) {
+    hex = (hex || '#5B5FC7').replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.substring(0,2),16);
+    var g = parseInt(hex.substring(2,4),16);
+    var b = parseInt(hex.substring(4,6),16);
+    return 'rgba('+r+','+g+','+b+',0.1)';
+  }
+
   function loadNotification() {
     var notifId = getNotifId();
     if (!notifId) { showError('No notification ID provided.'); return; }
 
     var baseUrl = getBaseUrl();
 
-    // Load categories from entity description
+    // Load categories from the category entity
     var catXhr = new XMLHttpRequest();
-    catXhr.open('GET', baseUrl + '/api/data/v9.2/' + NOTIF_DEF_PATH + '?$select=Description', false);
+    catXhr.open('GET', baseUrl + '/api/data/v9.2/' + CAT_SET + '?$select=maulabs_notificationcategoryid,maulabs_name,maulabs_emoji,maulabs_color', false);
     catXhr.setRequestHeader('OData-MaxVersion', '4.0');
     catXhr.setRequestHeader('OData-Version', '4.0');
     catXhr.send();
     if (catXhr.status === 200) {
-      try {
-        var meta = JSON.parse(catXhr.responseText);
-        var desc = '';
-        if (meta.Description && meta.Description.LocalizedLabels && meta.Description.LocalizedLabels.length)
-          desc = meta.Description.LocalizedLabels[0].Label;
-        var config = JSON.parse(desc);
-        categories = config.categories || [];
-      } catch (e) { categories = []; }
+      try { categories = JSON.parse(catXhr.responseText).value || []; } catch (e) { categories = []; }
     }
 
     // Load notification record
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', baseUrl + '/api/data/v9.2/maulabs_supervisornotifications(' + notifId + ')?$select=maulabs_title,maulabs_message,maulabs_imageurl,maulabs_linkurl,maulabs_linktext,maulabs_priority,maulabs_status,maulabs_category,maulabs_senton,maulabs_scheduledon,createdon,_createdby_value', false);
+    xhr.open('GET', baseUrl + '/api/data/v9.2/maulabs_supervisornotifications(' + notifId + ')?$select=maulabs_title,maulabs_message,maulabs_imageurl,maulabs_linkurl,maulabs_linktext,maulabs_priority,maulabs_status,_maulabs_categoryid_value,maulabs_senton,maulabs_scheduledon,createdon,_createdby_value', false);
     xhr.setRequestHeader('OData-MaxVersion', '4.0');
     xhr.setRequestHeader('OData-Version', '4.0');
     xhr.setRequestHeader('Prefer', 'odata.include-annotations="*"');
@@ -314,13 +328,17 @@
     var container = document.getElementById('notifContent');
     var html = '';
 
+    // Set header title to notification title
+    document.getElementById('headerTitle').textContent = n.maulabs_title || 'Notification';
+
     // Meta row: category + priority
     html += '<div class="meta-row">';
-    var cat = categories.find(function(c) { return c.id === n.maulabs_category; });
+    var cat = categories.find(function(c) { return c.maulabs_notificationcategoryid === n._maulabs_categoryid_value; });
     if (cat) {
-      html += '<span class="category-badge" style="background:' + escHtml(cat.color) + '">' + escHtml(cat.icon || '') + ' ' + escHtml(cat.name) + '</span>';
-      document.getElementById('headerIcon').textContent = cat.icon || '\u{1F514}';
-      document.getElementById('headerBar').style.background = cat.color || '#5B5FC7';
+      html += '<span class="category-badge" style="' + catBadgeStyle(cat.maulabs_color) + '">' + escHtml(cat.maulabs_emoji || '') + ' ' + escHtml(cat.maulabs_name) + '</span>';
+      document.getElementById('headerIcon').textContent = cat.maulabs_emoji || '\u{1F514}';
+      document.getElementById('headerBar').style.background = catHeaderStyle(cat.maulabs_color);
+      document.getElementById('headerBar').style.color = 'rgb(' + Math.round(parseInt(cat.maulabs_color.replace('#','').substring(0,2),16)*0.55) + ',' + Math.round(parseInt(cat.maulabs_color.replace('#','').substring(2,4),16)*0.55) + ',' + Math.round(parseInt(cat.maulabs_color.replace('#','').substring(4,6),16)*0.55) + ')';
     }
     var priorityLabels = ['Normal', 'Important', 'Urgent'];
     var priorityClasses = ['priority-normal', 'priority-important', 'priority-urgent'];

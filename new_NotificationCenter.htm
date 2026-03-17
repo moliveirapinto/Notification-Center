@@ -218,7 +218,6 @@
     border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
-    color: #fff;
   }
   .priority-badge {
     display: inline-block;
@@ -1128,7 +1127,8 @@
         <button type="button" class="img-tab" onclick="switchImgTab('upload')">Upload</button>
       </div>
       <div id="imgTabUrl">
-        <input type="text" id="nfImageUrl" maxlength="2000" placeholder="https://example.com/image.png" />
+        <input type="text" id="nfImageUrl" maxlength="2000" placeholder="https://example.com/image.png" oninput="updateUrlImagePreview()" />
+        <div id="urlImagePreview" style="display:none;margin-top:8px"><img id="urlPreviewThumb" style="max-width:100%;max-height:120px;border-radius:6px;border:1px solid #e0e0e0" onerror="this.parentElement.style.display='none'" /></div>
       </div>
       <div id="imgTabUpload" style="display:none">
         <div class="img-upload-area" id="imgDropZone" onclick="document.getElementById('nfImageFile').click()">
@@ -1652,13 +1652,24 @@ function getQueueMembers(queueId) {
     ids.forEach(function (id) {
         id = id.trim();
         if (!id) return;
+        // Use FetchXML to query the queuemembership intersect table directly
+        // This works reliably for all queue types including Omnichannel queues
+        var fetchXml = '<fetch>' +
+            '<entity name="systemuser">' +
+            '<attribute name="systemuserid" />' +
+            '<attribute name="fullname" />' +
+            '<filter><condition attribute="isdisabled" operator="eq" value="0" /></filter>' +
+            '<link-entity name="queuemembership" from="systemuserid" to="systemuserid" intersect="true">' +
+            '<filter><condition attribute="queueid" operator="eq" value="' + id + '" /></filter>' +
+            '</link-entity>' +
+            '</entity>' +
+            '</fetch>';
         var xhr = apiCall("GET",
-            "/api/data/v9.2/queues(" + id + ")?$select=queueid" +
-            "&$expand=queue_membership($select=systemuserid,fullname)");
+            "/api/data/v9.2/systemusers?fetchXml=" + encodeURIComponent(fetchXml));
         if (xhr.status === 200) {
             var data = JSON.parse(xhr.responseText);
-            if (data.queue_membership) {
-                data.queue_membership.forEach(function (u) {
+            if (data.value) {
+                data.value.forEach(function (u) {
                     if (u.systemuserid && !seenIds[u.systemuserid.toLowerCase()]) {
                         seenIds[u.systemuserid.toLowerCase()] = true;
                         allMembers.push(u);
@@ -1787,7 +1798,7 @@ function renderNotifications() {
         }
         html += "</td>";
         html += "<td>";
-        if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + " " + esc(cat.maulabs_name) + "</span>";
+        if (cat) html += '<span class="category-badge" style="' + catBadgeStyle(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + " " + esc(cat.maulabs_name) + "</span>";
         else html += '<span style="color:#ccc">-</span>';
         html += "</td>";
         html += '<td><span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">';
@@ -1816,8 +1827,10 @@ function renderNotifications() {
             html += '<button class="btn btn-sm" style="background:#2563eb;color:#fff;margin-right:4px" onclick="quickSendNotif(\'' + id + '\')">Send Now</button>';
             html += '<button class="btn btn-sm btn-ghost" style="font-size:11px" onclick="cancelSchedule(\'' + id + '\')">Cancel</button>';
         } else {
+            html += '<div style="display:inline-flex;gap:4px">';
             html += '<button class="btn btn-sm btn-ghost" onclick="viewNotifDetails(\'' + id + '\')">Details</button>';
-            html += '<button class="btn btn-sm btn-ghost" style="margin-left:4px" onclick="cloneNotification(\'' + id + '\')">Clone</button>';
+            html += '<button class="btn btn-sm btn-ghost" onclick="cloneNotification(\'' + id + '\')">Clone</button>';
+            html += '</div>';
         }
         html += "</td></tr>";
     });
@@ -1841,6 +1854,7 @@ function cloneNotification(id) {
     document.getElementById("nfPriority").value = String(n.maulabs_priority || 0);
     document.getElementById("nfMessage").value = n.maulabs_message || "";
     document.getElementById("nfImageUrl").value = n.maulabs_imageurl || "";
+    updateUrlImagePreview();
     document.getElementById("nfLinkUrl").value = n.maulabs_linkurl || "";
     document.getElementById("nfLinkText").value = n.maulabs_linktext || "";
     selectedQueueIds = [];
@@ -1871,6 +1885,7 @@ function openNotifModal(id) {
     document.getElementById("nfPriority").value = n ? String(n.maulabs_priority || 0) : "0";
     document.getElementById("nfMessage").value = n ? (n.maulabs_message || "") : "";
     document.getElementById("nfImageUrl").value = n ? (n.maulabs_imageurl || "") : "";
+    updateUrlImagePreview();
     document.getElementById("nfLinkUrl").value = n ? (n.maulabs_linkurl || "") : "";
     document.getElementById("nfLinkText").value = n ? (n.maulabs_linktext || "") : "";
     // Restore queue selections
@@ -1894,6 +1909,17 @@ function switchImgTab(tab) {
     document.querySelector('.img-tab[onclick*="' + tab + '"]').classList.add('active');
     document.getElementById('imgTabUrl').style.display = tab === 'url' ? '' : 'none';
     document.getElementById('imgTabUpload').style.display = tab === 'upload' ? '' : 'none';
+}
+
+function updateUrlImagePreview() {
+    var url = document.getElementById('nfImageUrl').value.trim();
+    var wrap = document.getElementById('urlImagePreview');
+    if (url) {
+        document.getElementById('urlPreviewThumb').src = url;
+        wrap.style.display = '';
+    } else {
+        wrap.style.display = 'none';
+    }
 }
 
 function handleImageFile(input) {
@@ -2183,7 +2209,7 @@ function viewNotifDetails(id) {
     var pr = n.maulabs_priority || 0;
 
     var html = '<div class="report-meta" style="margin-bottom:12px">';
-    if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + " " + esc(cat.maulabs_name) + "</span>";
+    if (cat) html += '<span class="category-badge" style="' + catBadgeStyle(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + " " + esc(cat.maulabs_name) + "</span>";
     html += '<span class="badge ' + STATUS_CLASSES[st] + '">' + STATUS_LABELS[st] + "</span>";
     html += '<span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">' + PRIORITY_LABELS[pr] + "</span>";
     html += "</div>";
@@ -2230,7 +2256,7 @@ function showPreview() {
     var html = '';
     // Category + Priority badges
     html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">';
-    if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + ' ' + esc(cat.maulabs_name) + '</span>';
+    if (cat) html += '<span class="category-badge" style="' + catBadgeStyle(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + ' ' + esc(cat.maulabs_name) + '</span>';
     html += '<span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">';
     if (pr === 2) html += '&#128680; ';
     else if (pr === 1) html += '&#9888;&#65039; ';
@@ -2844,7 +2870,7 @@ function renderReportDetail(notifId) {
     html += '<button class="dash-back-btn" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe" onclick="cloneNotification(\'' + esc(notif.maulabs_supervisornotificationid) + '\');switchTab(\'notifications\')">Clone</button>';
     html += '<div style="flex:1"><h3 style="margin:0">' + esc(notif.maulabs_title) + '</h3>';
     html += '<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
-    if (cat) html += '<span class="category-badge" style="background:' + esc(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + ' ' + esc(cat.maulabs_name) + '</span>';
+    if (cat) html += '<span class="category-badge" style="' + catBadgeStyle(cat.maulabs_color) + '">' + esc(cat.maulabs_emoji) + ' ' + esc(cat.maulabs_name) + '</span>';
     html += '<span class="badge ' + STATUS_CLASSES[st] + '">' + STATUS_LABELS[st] + '</span>';
     html += '<span class="priority-badge ' + PRIORITY_CLASSES[pr] + '">' + PRIORITY_LABELS[pr] + '</span>';
     if (queueName) html += '<span style="font-size:12px;background:#eff6ff;color:#2563eb;padding:3px 10px;border-radius:100px;font-weight:600">Queue: ' + esc(queueName) + '</span>';
@@ -3000,6 +3026,20 @@ function fmtDate(iso) {
     if (!iso) return "";
     var d = new Date(iso);
     return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function catBadgeStyle(hex) {
+    hex = (hex || "#888888").replace("#", "");
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.substring(0,2),16);
+    var g = parseInt(hex.substring(2,4),16);
+    var b = parseInt(hex.substring(4,6),16);
+    var bg = "rgba("+r+","+g+","+b+",0.12)";
+    var tr = Math.round(r*0.55);
+    var tg = Math.round(g*0.55);
+    var tb = Math.round(b*0.55);
+    var txt = "rgb("+tr+","+tg+","+tb+")";
+    return "background:"+bg+";color:"+txt;
 }
 
 function esc(s) {

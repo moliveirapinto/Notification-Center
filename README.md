@@ -19,6 +19,7 @@ A real-time notification system for **Dynamics 365** that enables supervisors to
   - [Reports](#reports)
 - [Screenshots](#screenshots)
 - [Solution Export](#solution-export)
+- [Known Limitations](#known-limitations)
 - [License](#license)
 
 ---
@@ -209,6 +210,18 @@ This solution is fully portable across D365 environments:
 - ✅ All API calls use relative OData paths
 
 To export, use the standard D365 solution export process.
+
+---
+
+## Known Limitations
+
+### Agent Popup Dialog Size
+
+When an agent clicks **"View Details"** on a D365 native in-app notification, the popup opens inside a D365-managed dialog. The dialog size (width/height) is **controlled by Dynamics 365** and cannot be customized from inside the web resource. This means the popup may appear wider than intended on large screens.
+
+When the popup is opened via the **poller banner** (using `Xrm.Navigation.navigateTo`), the dialog size is set to 400×560px as intended.
+
+This is a platform limitation of D365 in-app notification action handling — the `navigationTarget: "dialog"` action does not support custom sizing.
 
 ---
 
