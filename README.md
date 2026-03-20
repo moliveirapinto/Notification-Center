@@ -2,6 +2,12 @@
 
 A real-time notification system for **Dynamics 365** that enables supervisors to create, schedule, and send notifications directly to agents — with acknowledgment tracking, category management, and analytics.
 
+![Agent View](img/Agent.jpeg)
+
+![Supervisor View](img/Supervisor.jpeg)
+
+![Dashboard](img/dash.jpeg)
+
 ---
 
 ## Table of Contents
