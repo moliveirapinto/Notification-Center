@@ -1,6 +1,8 @@
 # Notification Center
 
-A real-time notification system for **Dynamics 365** that enables supervisors to create, schedule, and send notifications directly to agents — with acknowledgment tracking, category management, and analytics.
+Many customers have been asking for a seamless way to send messages and notifications to agents directly within our platform. In response, I designed an app that enables supervisors to broadcast messages to all agents or target specific queue members with ease. 
+The app is fully embedded in Dynamics 365 and accessible through the Admin Center. It leverages the platform's native notification components, ensuring zero disruption to any existing messaging workflows already in use. Also, the dashboard section shows all the agents that have acknowledged the notification and the ones still missing.
+And of course, if you know me, great functionality isn't enough. The app also delivers a modern, intuitive UI for both agents and supervisors, making communication not just efficient, but enjoyable.
 
 ![Agent View](img/Agent.jpeg)
 
