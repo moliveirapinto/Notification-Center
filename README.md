@@ -185,7 +185,7 @@ After importing the solution, create a menu item so supervisors can access the N
 
 2. **Open the App Designer**:
    - Click **Apps** in the left navigation pane
-   - Find the model-driven app you want to add the menu item to (e.g., **Customer Service Hub** or your custom app)
+   - Find the model-driven app you want to add the menu item to (e.g., **Customer Service Admin Center** or any other app)
    - Click the **...** (More options) menu next to the app and select **Edit** to open the App Designer
 
 3. **Edit the Sitemap**:
